@@ -50,7 +50,7 @@ var (
 
 	// RenderProps describe the area that gets rendered in vbwatch. hr stands
 	// for halfRender which is the full render are minus the block we are
-	// standing devided by two
+	// standing divided by two
 
 	// RenderWidth is the visible area for a player in x-direction
 	RenderWidth = 11
