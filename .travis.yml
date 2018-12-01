@@ -1,0 +1,26 @@
+dist: trusty
+sudo: false
+
+language: go
+
+matrix:
+  include:
+  - go: "1.11"
+  - go: "tip"
+  allow_failures:
+  - go: "tip"
+
+before_install:
+- export GO111MODULE=on
+
+install:
+- go mod verify
+
+before_script:
+- set -o pipefail
+
+script:
+- go test -v -cover -covermode atomic -timeout 20m -race -coverprofile=coverage.txt ./...
+
+after_success:
+- bash <(curl -s https://codecov.io/bash)

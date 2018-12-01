@@ -1,0 +1,18 @@
+{
+	"version": "0.1.0",
+	"configurations": [
+		{
+			"name": "Launch VBGS",
+			"type": "go",
+			"request": "launch",
+			"mode": "debug",
+			"program": "${workspaceRoot}",
+			"env": {},
+			"args": [
+				"-config",
+				"config/debug.json"
+			],
+			"showLog": true
+		}
+	]
+}

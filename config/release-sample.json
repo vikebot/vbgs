@@ -1,0 +1,39 @@
+{
+	"round_id": 2,
+	"instance": "rid117",
+	"hostname": "rid117.gsep.vikebot.com",
+	"production": false,
+
+	"log": {
+		"level": "INFO",
+		"file": {
+			"active": true,
+			"name": "rid117.gsep.vikebot.com_run.log"
+		},
+		"sentry": {
+			"active": true,
+			"dsn": "YOUR-SENTRY-PRODUCTION-DSN"
+		}
+	},
+
+	"database": {
+		"mariadb": {
+			"host": "",
+			"user": "",
+			"password": "",
+			"name": "vbdb"
+		}
+	},
+
+	"network": {
+		"tcp": {
+			"addr": ":2400"
+		},
+		"ws": {
+			"addr": ":443",
+			"valid_origin": "watch.vikebot.com"
+		}
+	},
+
+	"user_avatar_picture_url": ""
+}
