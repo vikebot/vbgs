@@ -10,7 +10,7 @@ func packetHandler(c *ntcpclient, data []byte) {
 	c.CurType = "forbidden"
 
 	// Decrypt packet
-	data = decryptPacket(c)
+	data = decryptPacket(c, data)
 
 	// Log the incoming packet as debug message
 	c.LogCtx.Debug("received",
@@ -66,16 +66,16 @@ func packetHandler(c *ntcpclient, data []byte) {
 }
 
 // decryptPacket
-func decryptPacket(c *ntcpclient) (data []byte) {
+func decryptPacket(c *ntcpclient, data []byte) []byte {
 	if c.IsEncrypted && !envDisableCrypt {
 		plainBuf, err := c.Crypt.DecryptBase64(data)
 		if err != nil {
 			c.LogCtx.Warn("failed to decrypt cipher", zap.Error(err))
 			c.Respond("Invalid cipher text - unable to decrypt")
-			return
+			return data
 		}
 		data = plainBuf
 	}
 
-	return
+	return data
 }
