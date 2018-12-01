@@ -2,7 +2,7 @@
 
 vbgs is the core business logic behind vikebot. It runs the game-server itself and processes game actions to render-able data for graphical interfaces
 
-[![Build Status](https://travis-ci.org/vikebot/vbgs.svg?branch=master)](https://travis-ci.org/vikebot/vbgs)
+[![Build Status](https://travis-ci.com/vikebot/vbgs.svg?branch=master)](https://travis-ci.com/vikebot/vbgs)
 [![codecov](https://codecov.io/gh/vikebot/vbgs/branch/master/graph/badge.svg)](https://codecov.io/gh/vikebot/vbgs)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vikebot/vbgs)](https://goreportcard.com/report/github.com/vikebot/vbgs)
 [![GoDoc](https://godoc.org/github.com/vikebot/vbgs?status.svg)](https://godoc.org/github.com/vikebot/vbgs)
