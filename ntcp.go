@@ -74,9 +74,12 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 		data, err := buf.ReadBytes('\n')
 		if err != nil {
 			if strings.HasSuffix(err.Error(), "An existing connection was forcibly closed by the remote host.") || err.Error() == "EOF" {
-				c.LogCtx.Info("disconnected")
-				updateDist.PushTypeInfo(c, false)
-				ntcpRegistry.Delete(c)
+				disconnect(c)
+				return
+			}
+
+			if _, ok := err.(*net.OpError); ok {
+				disconnect(c)
 				return
 			}
 
@@ -86,4 +89,10 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 
 		packetHandler(c, data[:len(data)-1])
 	}
+}
+
+func disconnect(c *ntcpclient) {
+	c.LogCtx.Info("disconnected")
+	updateDist.PushTypeInfo(c, false)
+	ntcpRegistry.Delete(c)
 }
