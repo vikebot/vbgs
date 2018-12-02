@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
+	"go.uber.org/zap"
 )
 
 type moveObj struct {
@@ -30,25 +31,24 @@ func opMove(c *ntcpclient, packet movePacket) {
 		return
 	}
 
-	ng, err := c.Player.Move(dir)
+	ng, relPos, err := c.Player.Move(dir)
 	if err != nil {
 		c.Respond(err.Error())
 		return
 	}
 
-	newLine, err := vbge.GetNewLineMapentity(vbge.RenderWidth, c.Player.UserID, battle, dir)
-	if err != nil {
-		c.Respond(err.Error())
-		return
-	}
-
-	line, err := json.Marshal(&newLine)
-	if err != nil {
-		c.Respond(err.Error())
-		return
-	}
+	// Move is successfully finished for client -> return nil
 	c.RespondNil()
 
+	// get new line for player
+	newLine := vbge.GetNewLineMapentity(vbge.RenderWidth, c.Player.UserID, battle, dir)
+	line, err := json.Marshal(&newLine)
+	if err != nil {
+		c.LogCtx.Error("unable to parse json", zap.Error(err))
+		return
+	}
+
+	// create generic player response packet
 	playerResp := vbge.PlayerResp{
 		GRID:          c.Player.GRenderID,
 		Health:        c.Player.Health.Value,
@@ -56,20 +56,26 @@ func opMove(c *ntcpclient, packet movePacket) {
 		WatchDir:      c.Player.WatchDir,
 	}
 
-	for i := 0; i < len(ng); i++ {
-		l := vbge.Location{
-			X: c.Player.Location.X - ng[i].Location.X,
-			Y: c.Player.Location.Y - ng[i].Location.Y,
-		}
+	// loop over all player's in the notifygroup and send an update
+	for i := range ng {
+		// set the relative posititon for the current opponent
+		playerResp.Location = *relPos[i]
 
-		playerResp.Location = *c.Player.Location.RelativeFrom(ng[i].Location)
-
+		// marshal response
 		pr, err := json.Marshal(playerResp)
 		if err != nil {
-			c.Respond(err.Error())
+			c.LogCtx.Error("unable to marshal vbge.PlayerResp", zap.Error(err))
 			return
 		}
 
-		updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"move","direction":"`+dir+`","playerinfo":`+string(pr)+`,"loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"newline":`+string(line)+`}`)), notifyChannelPrivate, nil, c.LogCtx)
+		updateDist.Push(ng[i],
+			newUpdate("game",
+				[]byte(`{"grid":"`+c.Player.GRenderID+
+					`","type":"move","direction":"`+dir+`","playerinfo":`+string(pr)+
+					`,"loc":{"isabs":false,"x":`+strconv.Itoa(relPos[i].X)+`,
+					"y":`+strconv.Itoa(relPos[i].Y)+`},"newline":`+string(line)+`}`)),
+			notifyChannelPrivate,
+			nil,
+			c.LogCtx)
 	}
 }

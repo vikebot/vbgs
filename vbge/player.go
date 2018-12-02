@@ -102,28 +102,46 @@ func (p *Player) Rotate(angle string) NotifyGroup {
 }
 
 // Move implements https://sdk-wiki.vikebot.com/#move
-func (p *Player) Move(dir string) (ng NotifyGroup, err error) {
+func (p *Player) Move(dir string) (ng NotifyGroup, relativePos []*Location, err error) {
 	if p.IsDefending {
-		return nil, ErrCantMoveOFDefending
+		return nil, nil, ErrCantMoveOFDefending
 	}
 
-	oldLoc := p.Location
-
+	// make a real value-copy of the location, add the proposed user-direction
+	// and see if it's inside the map
 	locc := p.Location.DeepCopy()
 	locc.AddDirection(dir)
 	if !locc.IsInMap() {
-		return nil, ErrNoMoveOutOfMap
+		return nil, nil, ErrNoMoveOutOfMap
 	}
 
-	joined, ng := p.Map.TryJoinAreaSynced(p, *locc)
-	if !joined {
-		return nil, ErrHasResident
+	// lock the map
+	p.Map.SyncRoot.Lock()
+	defer p.Map.SyncRoot.Unlock()
+
+	// check whether the proposed field has a resident or not
+	if p.Map.Matrix[locc.Y][locc.X].HasResident() {
+		return nil, nil, ErrHasResident
 	}
+
+	// proposed field has no resident -> join it and leave the old one
+	p.Map.Matrix[locc.Y][locc.X].JoinArea(p)
+	p.Map.Matrix[p.Location.Y][p.Location.X].LeaveArea()
+
+	// calculate the area in which player's need to be informed about this move
+	ng = p.Map.PInRenderAreaCombined(p.Location, locc)
+
+	// set the new player's location ref to his new location
 	p.Location = locc
 
-	p.Map.LeaveArea(p, *oldLoc)
+	// calculate relative positions (from the new position of the player) to all
+	// other players inside the notifygroup
+	relPos := make([]*Location, len(ng))
+	for i := range ng {
+		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	}
 
-	return p.Map.PInRenderArea(*p.Location), nil
+	return ng, relPos, nil
 }
 
 // Radar implements https://sdk-wiki.vikebot.com/#radar

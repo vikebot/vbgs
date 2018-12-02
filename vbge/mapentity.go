@@ -59,6 +59,35 @@ func (me *MapEntity) PInRenderArea(l Location) NotifyGroup {
 	return inarea
 }
 
+// PInRenderAreaCombined returns all the players that are inside the render
+// area around the passend locations. The minimum rectangle containing both
+// locations is calculated and searched for players. The Result is returned
+// as a `NotifyGroup`. This function isn't safe for concurrent use.
+func (me *MapEntity) PInRenderAreaCombined(oldL *Location, newL *Location) NotifyGroup {
+	startX := vbcore.MinInt(oldL.X-HrWidth+1, newL.X-HrWidth+1)
+	startX = vbcore.MaxInt(0, startX)
+
+	endX := vbcore.MaxInt(oldL.X+HrWidth+1, newL.X+HrWidth+1)
+	endX = vbcore.MinInt(MapWidth-1, endX)
+
+	startY := vbcore.MinInt(oldL.Y-HrHeight+1, newL.Y-HrHeight+1)
+	startY = vbcore.MaxInt(0, startY)
+
+	endY := vbcore.MaxInt(oldL.Y+HrHeight+1, newL.Y+HrHeight+1)
+	endY = vbcore.MinInt(MapHeight-1, endY)
+
+	inarea := []*Player{}
+	for y := startY; y <= endY; y++ {
+		for x := startX; x <= endX; x++ {
+			if me.Matrix[y][x].HasResident() {
+				inarea = append(inarea, me.Matrix[y][x].Resident)
+			}
+		}
+	}
+
+	return inarea
+}
+
 // PInMatrix returns true if any player is in the matrix of the given
 // MapEntity. If a player occurs, true is returned
 func (me *MapEntity) PInMatrix() bool {
@@ -70,21 +99,6 @@ func (me *MapEntity) PInMatrix() bool {
 		}
 	}
 	return false
-}
-
-// TryJoinAreaSynced checks whether the area passed is empty and hence joinable. If
-// so it joins `(*BlockEntity).JoinArea` and calculates the `NotifyGroup` for
-// this operation. This function is safe for concurrent use.
-func (me *MapEntity) TryJoinAreaSynced(p *Player, l Location) (joined bool, ng NotifyGroup) {
-	me.SyncRoot.Lock()
-	defer me.SyncRoot.Unlock()
-
-	if me.Matrix[l.Y][l.X].HasResident() {
-		return false, nil
-	}
-	me.Matrix[l.Y][l.X].JoinArea(p)
-
-	return true, me.PInRenderArea(l)
 }
 
 // LeaveArea is calling (*BlockEntity).LeaveArea() to set a location after
