@@ -58,8 +58,8 @@ func opMove(c *ntcpclient, packet movePacket) {
 
 	for i := 0; i < len(ng); i++ {
 		l := vbge.Location{
-			X: c.Player.Location.X - ng[i].Location.X,
-			Y: c.Player.Location.Y - ng[i].Location.Y,
+			X: ng[i].Location.X - c.Player.Location.X,
+			Y: ng[i].Location.Y - c.Player.Location.Y,
 		}
 
 		playerResp.Location = *c.Player.Location.RelativeFrom(ng[i].Location)

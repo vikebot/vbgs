@@ -51,12 +51,13 @@ func (l *Location) IsInMap() bool {
 		l.Y < MapHeight)
 }
 
-// RelativeFrom returns the relative position from the center of the
-// Rendermapsize
+// RelativeFrom returns the relative position from the given
+// player location (pl) => the relative position is from the
+// view of l
 func (l *Location) RelativeFrom(pl *Location) *Location {
 	nl := Location{
-		X: l.X - pl.X,
-		Y: l.Y - pl.Y,
+		X: pl.X - l.X,
+		Y: pl.Y - l.Y,
 	}
 	return &nl
 }
