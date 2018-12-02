@@ -122,10 +122,8 @@ func TestPlayerMoveOutOfMap(t *testing.T) {
 				Rl: NewOpLimitations(),
 			}
 
-			_, err := p.Move(c.playerMove.ToDir)
-
+			_, _, err := p.Move(c.playerMove.ToDir)
 			if err == nil {
-				t.Fail()
 				t.Errorf(c.name)
 			}
 		})
@@ -160,41 +158,6 @@ func TestPlayerMoveWatchingWrongDirection(t *testing.T) {
 			p.Move(c.playerMove.ToDir)
 
 			if p.Location.X != c.wantedLocation.X || p.Location.Y != c.wantedLocation.Y {
-				t.Fail()
-				t.Errorf(c.name)
-			}
-		})
-	}
-}
-
-func TestPlayerMoveToResidant(t *testing.T) {
-	cases := []struct {
-		name       string
-		playerMove playerMoveTest
-	}{
-		{"Test01: Move to block which has resisdent", newPlayerMoveTest(dirNorth, dirNorth, HrWidth, HrHeight)},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			p := Player{
-				Map:      NewMapEntity(MapWidth, MapHeight),
-				WatchDir: c.playerMove.FromDir,
-				Location: &Location{
-					X: c.playerMove.FromX,
-					Y: c.playerMove.FromY,
-				},
-				Rl: NewOpLimitations(),
-			}
-
-			p.Map.TryJoinAreaSynced(&p, Location{
-				X: HrWidth,
-				Y: HrHeight - 1,
-			})
-
-			_, err := p.Move(c.playerMove.ToDir)
-
-			if err == nil {
 				t.Fail()
 				t.Errorf(c.name)
 			}
@@ -385,11 +348,7 @@ func TestPlayerAttack(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			mapEntity := NewMapEntity(MapWidth, MapHeight)
 			c.enemy.Map = mapEntity
-			joined, _ := mapEntity.TryJoinAreaSynced(c.enemy, *c.enemy.Location)
-			if !joined {
-				t.Errorf("TryJoinAreaSynced() didn't work. Cannot place enemy into map")
-				return
-			}
+			mapEntity.Matrix[c.enemy.Location.Y][c.enemy.Location.X].JoinArea(c.enemy)
 
 			p := Player{
 				Map:      mapEntity,
@@ -541,7 +500,7 @@ func newMapEntityWithPlayers(playerCount int, location *Location, dir string) *M
 					},
 					Health: NewDefaultHealth(),
 				}
-				mapEntity.TryJoinAreaSynced(&p1, *p1.Location)
+				mapEntity.Matrix[p1.Location.Y][p1.Location.X].JoinArea(&p1)
 			} else {
 				p2 := Player{
 					Location: &Location{
@@ -550,7 +509,7 @@ func newMapEntityWithPlayers(playerCount int, location *Location, dir string) *M
 					},
 					Health: NewDefaultHealth(),
 				}
-				mapEntity.TryJoinAreaSynced(&p2, *p2.Location)
+				mapEntity.Matrix[p2.Location.Y][p2.Location.X].JoinArea(&p2)
 			}
 
 		}
@@ -565,7 +524,7 @@ func newMapEntityWithPlayers(playerCount int, location *Location, dir string) *M
 					},
 					Health: NewDefaultHealth(),
 				}
-				mapEntity.TryJoinAreaSynced(&p, *p.Location)
+				mapEntity.Matrix[p.Location.Y][p.Location.X].JoinArea(&p)
 			}
 		case dirEast:
 			for i := 1; i < playerCount+1; i++ {
@@ -576,7 +535,7 @@ func newMapEntityWithPlayers(playerCount int, location *Location, dir string) *M
 					},
 					Health: NewDefaultHealth(),
 				}
-				mapEntity.TryJoinAreaSynced(&p, *p.Location)
+				mapEntity.Matrix[p.Location.Y][p.Location.X].JoinArea(&p)
 			}
 		case dirSouth:
 			for i := 1; i < playerCount+1; i++ {
@@ -587,7 +546,7 @@ func newMapEntityWithPlayers(playerCount int, location *Location, dir string) *M
 					},
 					Health: NewDefaultHealth(),
 				}
-				mapEntity.TryJoinAreaSynced(&p, *p.Location)
+				mapEntity.Matrix[p.Location.Y][p.Location.X].JoinArea(&p)
 			}
 		case dirWest:
 			for i := 1; i < playerCount+1; i++ {
@@ -598,7 +557,7 @@ func newMapEntityWithPlayers(playerCount int, location *Location, dir string) *M
 					},
 					Health: NewDefaultHealth(),
 				}
-				mapEntity.TryJoinAreaSynced(&p, *p.Location)
+				mapEntity.Matrix[p.Location.Y][p.Location.X].JoinArea(&p)
 			}
 		}
 	}
