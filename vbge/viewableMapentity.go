@@ -53,7 +53,7 @@ func GetViewableMapentity(width, height, userID int, game *Battle, sync bool) (v
 
 // GetNewLineMapentity returns a new mapentity with a size of 1x11 or 11x1 depends on
 // moving direction
-func GetNewLineMapentity(width, userID int, game *Battle, direction string) (newLineMeViewable *ViewableMapentity, err error) {
+func GetNewLineMapentity(width, userID int, game *Battle, direction string) *ViewableMapentity {
 	newLineMe := game.Map.GetNewLineFromMapEntity(width, game.Players[userID], direction)
 
 	viewableMatrix := make([][]*EntityResp, len(newLineMe))
@@ -69,13 +69,11 @@ func GetNewLineMapentity(width, userID int, game *Battle, direction string) (new
 
 	viewableMatrix = fillMatrixWithER(viewableMatrix, me, direction)
 
-	newLineMeViewable = &ViewableMapentity{
+	return &ViewableMapentity{
 		Height: len(newLineMe),
 		Witdh:  len(newLineMe[0]),
 		Matrix: viewableMatrix,
 	}
-
-	return newLineMeViewable, err
 }
 
 // fillMatrixWithER fills an given matrix of EntityResp with the values
@@ -119,7 +117,7 @@ func fillMatrixWithER(matrix [][]*EntityResp, me *MapEntity, direction string) [
 
 				player = &PlayerResp{
 					GRID:          resident.GRenderID,
-					Health:        resident.Health.Value,
+					Health:        resident.Health.HealthSynced(),
 					CharacterType: resident.CharacterType,
 					WatchDir:      resident.WatchDir,
 					Location:      *resident.Location.RelativeFrom(loc),
