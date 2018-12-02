@@ -51,7 +51,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 	// create generic player response packet
 	playerResp := vbge.PlayerResp{
 		GRID:          c.Player.GRenderID,
-		Health:        c.Player.Health.Value,
+		Health:        c.Player.Health.HealthSynced(),
 		CharacterType: c.Player.CharacterType,
 		WatchDir:      c.Player.WatchDir,
 	}

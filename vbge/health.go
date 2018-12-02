@@ -5,36 +5,35 @@ import "sync"
 // Health is a struct that describes the Health of a player
 type Health struct {
 	sync.Mutex
-	Value int
+	internalValue int
 }
 
-// SafeHealthSynced returns a definite state of player health
-func (p *Player) SafeHealthSynced() int {
-	p.Health.Lock()
-	defer p.Health.Unlock()
-	return p.Health.Value
+// HealthSynced returns a definite state of player health
+func (h *Health) HealthSynced() int {
+	h.Lock()
+	defer h.Unlock()
+
+	return h.internalValue
 }
 
 // TakeDamage returns the health of the player after taking dmg
 func (h *Health) TakeDamage(p *Player) {
 	if p.IsDefending {
-		h.Value -= defaultDmg / 2
+		h.internalValue -= defaultDmg / 2
 	} else {
-		h.Value -= defaultDmg
+		h.internalValue -= defaultDmg
 	}
 }
 
 // NewDefaultHealth returns the default health
 func NewDefaultHealth() *Health {
-	return &Health{
-		Value: MaxHealth,
-	}
+	return NewHealth(MaxHealth)
 }
 
 // NewHealth accepts an integer value that is returned as
 // new health
 func NewHealth(health int) *Health {
 	return &Health{
-		Value: health,
+		internalValue: health,
 	}
 }

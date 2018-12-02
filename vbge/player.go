@@ -281,7 +281,7 @@ func (p *Player) Watch() (playerhealthMatrix [][]int, ng NotifyGroup, err error)
 
 			if l.IsInMap() {
 				if p.Map.Matrix[l.Y][l.X].HasResident() {
-					matrix[y][x] = p.Map.Matrix[l.Y][l.X].Resident.Health.Value
+					matrix[y][x] = p.Map.Matrix[l.Y][l.X].Resident.Health.HealthSynced()
 				} else {
 					matrix[y][x] = 0
 				}
@@ -319,7 +319,7 @@ func (p *Player) Attack(beforeRespawn func(*Player, NotifyGroup), afterRespawn f
 	// enventually kills him
 	enemy.Health.Lock()
 	enemy.Health.TakeDamage(enemy)
-	health = enemy.Health.Value
+	health = enemy.Health.internalValue
 	if health < 1 {
 		p.Kills++
 		enemy.Deaths++
@@ -357,7 +357,7 @@ func (p *Player) Undefend() (ng NotifyGroup, err error) {
 
 // GetHealth returns the health as an int value of a player
 func (p *Player) GetHealth() (health int, ng NotifyGroup) {
-	return p.Health.Value, p.Map.PInRenderArea(*p.Location)
+	return p.Health.HealthSynced(), p.Map.PInRenderArea(*p.Location)
 }
 
 // Spawn places the player randomly on the map as long as the location doesn't
