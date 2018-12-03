@@ -56,8 +56,8 @@ func (l *Location) IsInMap() bool {
 // view of l
 func (l *Location) RelativeFrom(pl *Location) *Location {
 	nl := Location{
-		X: pl.X - l.X,
-		Y: pl.Y - l.Y,
+		X: l.X - pl.X,
+		Y: l.Y - pl.Y,
 	}
 	return &nl
 }
