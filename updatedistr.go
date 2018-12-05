@@ -121,7 +121,7 @@ func (ud *updateDistributor) PushTypeUserinfo(ws *nwsclient) {
 	u.Content = []byte(fmt.Sprintf(`{"type":"userinfo","obj":{"user":{"name":"%s","username":"%s","picture":"%s","permission":"%s"}},"unixn":%s}`,
 		user.Name,
 		user.Username,
-		config.UserPictureURL+player.PicLink,
+		config.Battle.AvatarPictureURL+player.PicLink,
 		user.PermissionString,
 		strconv.FormatInt(u.UnixN, 10)))
 

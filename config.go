@@ -9,19 +9,14 @@ import (
 )
 
 type gameserverConfig struct {
-	RoundID        int    `json:"round_id"`
-	Instance       string `json:"instance"`
-	Hostname       string `json:"hostname"`
-	Production     bool   `json:"production"`
-	UserPictureURL string `json:"user_avatar_picture_url"`
+	Instance string `json:"instance"`
 
 	Log struct {
 		Level   zapcore.Level `json:"level"`
 		Config  string        `json:"config"`
 		Colored bool          `json:"colored"`
 		File    struct {
-			Active bool   `json:"active"`
-			Name   string `json:"name"`
+			Active bool `json:"active"`
 		} `json:"file"`
 		Sentry struct {
 			Active bool   `json:"active"`
@@ -50,13 +45,16 @@ type gameserverConfig struct {
 				Cert   string `json:"cert"`
 				PKey   string `json:"pkey"`
 			} `json:"tls"`
+			Flags struct {
+				Debug bool `json:"debug"`
+			} `json:"flags"`
 		} `json:"ws"`
 	} `json:"network"`
 
 	Battle struct {
-		RoundID int
-		Users   []int
-	} `json:"-"`
+		RoundID          int    `json:"round_id"`
+		AvatarPictureURL string `json:"avatar_picture_url"`
+	} `json:"battle"`
 }
 
 // loadConfig takes a path to a configfile and returns a

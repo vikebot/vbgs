@@ -31,10 +31,10 @@ func opLogin(c *ntcpclient, packet loginPacket) {
 		return
 	}
 
-	if config.RoundID != v.RoundID {
+	if config.Battle.RoundID != v.RoundID {
 		c.Respond("Your roundticket references an already finished game.")
 		c.LogCtx.Warn("valid watchtoken references invalid round",
-			zap.Int("config_round_id", config.RoundID),
+			zap.Int("config_round_id", config.Battle.RoundID),
 			zap.Int("watchtoken_round_id", v.RoundID))
 		return
 	}
