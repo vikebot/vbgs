@@ -295,7 +295,7 @@ func (p *Player) Watch() (playerhealthMatrix [][]int, ng NotifyGroup, err error)
 }
 
 // Attack implements https://sdk-wiki.vikebot.com/#attack
-func (p *Player) Attack(beforeRespawn func(*Player, NotifyGroup), afterRespawn func(*Player, NotifyGroup)) (enemyHealth int, ng NotifyGroup, err error) {
+func (p *Player) Attack(onHit func(*Player, int, NotifyGroup), beforeRespawn func(*Player, NotifyGroup), afterRespawn func(*Player, NotifyGroup)) (enemyHealth int, ng NotifyGroup, err error) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
@@ -319,6 +319,7 @@ func (p *Player) Attack(beforeRespawn func(*Player, NotifyGroup), afterRespawn f
 	// enventually kills him
 	enemy.Health.Lock()
 	enemy.Health.TakeDamage(enemy)
+	onHit(enemy, enemy.Health.internalValue, enemy.Map.PInRenderArea(*enemy.Location))
 	health = enemy.Health.internalValue
 	if health < 1 {
 		p.Kills++
