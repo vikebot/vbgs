@@ -45,13 +45,11 @@ type regnws struct {
 	baton sync.Mutex
 }
 
-func (r *regnws) Put(c *nwsclient) error {
+func (r *regnws) Put(c *nwsclient) {
 	r.baton.Lock()
 	defer r.baton.Unlock()
 
 	r.m[c.UserID] = append(r.m[c.UserID], c)
-
-	return nil
 }
 
 func (r *regnws) Get(userID int) []*nwsclient {
