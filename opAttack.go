@@ -23,28 +23,36 @@ type attackResponse struct {
 func opAttack(c *ntcpclient, packet attackPacket) {
 	// c.Player.Rl.Attack.Take()
 	time.Sleep(300 * time.Millisecond)
-	health, ng, err := c.Player.Attack(func(e *vbge.Player, notifyGroup vbge.NotifyGroup) {
-		updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"death"}`)), notifyChannelGroup, notifyGroup, c.LogCtx)
-	}, func(e *vbge.Player, notifyGroup vbge.NotifyGroup) {
-		playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, e.UserID, battle, false)
-		if err != nil {
-			return
-		}
-
-		pme, err := json.Marshal(playerMapentity)
-		if err != nil {
-			return
-		}
-
-		for i := 0; i < len(notifyGroup); i++ {
-			l := notifyGroup[i].Location.RelativeFrom(e.Location)
-			if notifyGroup[i].UserID == e.UserID {
-				updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"spawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelGroup, nil, c.LogCtx)
-			} else {
-				updateDist.Push(notifyGroup[i], newUpdate("game", []byte(`{"grid":"`+notifyGroup[i].GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`}}`)), notifyChannelGroup, nil, c.LogCtx)
+	health, ng, err := c.Player.Attack(
+		// func onHit
+		func(e *vbge.Player, health int, ng vbge.NotifyGroup) {
+			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"health","value":`+strconv.Itoa(health)+`}`)), notifyChannelGroup, ng, c.LogCtx)
+		},
+		// func beforeRespawn
+		func(e *vbge.Player, ng vbge.NotifyGroup) {
+			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"death"}`)), notifyChannelGroup, ng, c.LogCtx)
+		},
+		// func afterRespawn
+		func(e *vbge.Player, ng vbge.NotifyGroup) {
+			playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, e.UserID, battle, false)
+			if err != nil {
+				return
 			}
-		}
-	})
+
+			pme, err := json.Marshal(playerMapentity)
+			if err != nil {
+				return
+			}
+
+			for i := range ng {
+				l := ng[i].Location.RelativeFrom(e.Location)
+				if ng[i].UserID == e.UserID {
+					updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"spawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelGroup, nil, c.LogCtx)
+				} else {
+					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+ng[i].GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`}}`)), notifyChannelGroup, nil, c.LogCtx)
+				}
+			}
+		})
 	if err != nil {
 		c.Respond(err.Error())
 		updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"attack"}`)), notifyChannelGroup, ng, c.LogCtx)
