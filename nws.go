@@ -110,7 +110,7 @@ func nws(c *nwsclient) {
 		return
 	}
 	if !exists {
-		c.Ctx.Warn("client provided unknown watchtoken", zap.String("watchtoken", zap.String(string(watchtoken))))
+		c.Ctx.Warn("client provided unknown watchtoken", zap.String("watchtoken", string(watchtoken)))
 		err = c.WriteStr("Unknown watchtoken")
 		if err != nil {
 			c.Ctx.Warn("unable to send unknown watchtoken error message", zap.Error(err))
