@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type gameserverConfig struct {
@@ -15,8 +16,10 @@ type gameserverConfig struct {
 	UserPictureURL string `json:"user_avatar_picture_url"`
 
 	Log struct {
-		Level string `json:"level"`
-		File  struct {
+		Level   zapcore.Level `json:"level"`
+		Config  string        `json:"config"`
+		Colored bool          `json:"colored"`
+		File    struct {
 			Active bool   `json:"active"`
 			Name   string `json:"name"`
 		} `json:"file"`

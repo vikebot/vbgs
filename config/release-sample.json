@@ -6,6 +6,8 @@
 
 	"log": {
 		"level": "INFO",
+		"config": "development",
+		"colored": true,
 		"file": {
 			"active": true,
 			"name": "rid117.gsep.vikebot.com_run.log"
