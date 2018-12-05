@@ -93,9 +93,9 @@ func battleInit() {
 	// MapSize
 	vbge.SetMapDimensions(vbge.MapHeight, vbge.MapWidth)
 
-	joined, success := vbdb.JoinedUsersCtx(config.RoundID, logctx)
+	joined, success := vbdb.JoinedUsersCtx(config.Battle.RoundID, logctx)
 	if !success {
-		logctx.Fatal("unable to load users for this round", zap.Int("round_id", config.RoundID))
+		logctx.Fatal("unable to load users for this round", zap.Int("round_id", config.Battle.RoundID))
 	}
 
 	for _, j := range joined {

@@ -1,20 +1,16 @@
 {
-	"round_id": 2,
 	"instance": "rid117",
-	"hostname": "rid117.gsep.vikebot.com",
-	"production": false,
 
 	"log": {
 		"level": "INFO",
-		"config": "development",
+		"config": "production",
 		"colored": true,
 		"file": {
-			"active": true,
-			"name": "rid117.gsep.vikebot.com_run.log"
+			"active": true
 		},
 		"sentry": {
 			"active": true,
-			"dsn": "YOUR-SENTRY-PRODUCTION-DSN"
+			"dsn": "SENTRY-PRODUCTION-DSN"
 		}
 	},
 
@@ -29,13 +25,24 @@
 
 	"network": {
 		"tcp": {
-			"addr": ":2400"
+			"addr": "localhost:2400"
 		},
 		"ws": {
-			"addr": ":443",
-			"valid_origin": "watch.vikebot.com"
+			"addr": "localhost:443",
+			"valid_origin": "watch.vikebot.com",
+			"tls": {
+				"active": false,
+				"cert": "cert/cert.pem",
+				"pkey": "cert/pkey.pem"
+			},
+			"flags": {
+				"debug": false
+			}
 		}
 	},
 
-	"user_avatar_picture_url": ""
+	"battle": {
+		"round_id": 117,
+		"avatar_picture_url": ""
+	}
 }

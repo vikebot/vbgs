@@ -82,7 +82,10 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		c.Ctx.Info("closed", zap.String("ip", r.RemoteAddr))
-		ws.Close()
+		err = ws.Close()
+		if err != nil {
+			c.Ctx.Error("error during closing websocket", zap.Error(err))
+		}
 	}()
 
 	c.Ws = ws
@@ -93,28 +96,39 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 func nws(c *nwsclient) {
 	mt, watchtoken, err := c.Ws.ReadMessage()
 	if err != nil {
-		c.Ctx.Error("failed reading message from websocket", zap.Error(err))
+		c.Ctx.Warn("failed reading message from websocket", zap.Error(err))
 		return
 	}
 	c.Mt = mt
 
 	v, exists, success := vbdb.RoundentryFromWatchtokenCtx(string(watchtoken), c.Ctx)
 	if !success {
-		c.WriteStr("Internal server error")
+		err = c.WriteStr("Internal server error")
+		if err != nil {
+			c.Ctx.Warn("unable to send internal server error message", zap.Error(err))
+		}
 		return
 	}
 	if !exists {
-		c.WriteStr("Unknown watchtoken")
+		c.Ctx.Warn("client provided unknown watchtoken", zap.String("watchtoken", zap.String(string(watchtoken))))
+		err = c.WriteStr("Unknown watchtoken")
+		if err != nil {
+			c.Ctx.Warn("unable to send unknown watchtoken error message", zap.Error(err))
+		}
 		return
 	}
 	c.UserID = v.UserID
 	c.Ctx.Info("authenticated", zap.Int("user_id", v.UserID))
 
-	if config.RoundID != v.RoundID {
-		c.WriteStr("Invalid round")
+	if config.Battle.RoundID != v.RoundID {
 		c.Ctx.Warn("valid watchtoken references invalid round",
-			zap.Int("config_round_id", config.RoundID),
+			zap.Int("config_round_id", config.Battle.RoundID),
 			zap.Int("watchtoken_round_id", v.RoundID))
+
+		err = c.WriteStr("Internal server error")
+		if err != nil {
+			c.Ctx.Warn("unable to send internal server error message", zap.Error(err))
+		}
 		return
 	}
 
@@ -126,7 +140,7 @@ func nws(c *nwsclient) {
 		c.Ctx.Debug("disconnected. removed from registry")
 	}()
 
-	if !config.Production {
+	if !config.Network.WS.Flags.Debug {
 		updateDist.PushTypeFlag(c, "debug", true)
 		c.Ctx.Debug("sending debug flag to nwsclient")
 	}
