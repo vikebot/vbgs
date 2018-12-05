@@ -294,8 +294,17 @@ func (p *Player) Watch() (playerhealthMatrix [][]int, ng NotifyGroup, err error)
 	return matrix, p.Map.PInRenderArea(*p.Location), nil
 }
 
+// PlayerHitEvent is called when a player has been hit
+type PlayerHitEvent func(p *Player, healthAfterHit int, ng NotifyGroup)
+
+// DeathEvent is called when a player has died
+type DeathEvent func(p *Player, ng NotifyGroup)
+
+// SpawnEvent is called when a player has spawned
+type SpawnEvent func(p *Player, ng NotifyGroup)
+
 // Attack implements https://sdk-wiki.vikebot.com/#attack
-func (p *Player) Attack(onHit func(*Player, int, NotifyGroup), beforeRespawn func(*Player, NotifyGroup), afterRespawn func(*Player, NotifyGroup)) (enemyHealth int, ng NotifyGroup, err error) {
+func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent) (enemyHealth int, ng NotifyGroup, err error) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
@@ -319,19 +328,28 @@ func (p *Player) Attack(onHit func(*Player, int, NotifyGroup), beforeRespawn fun
 	// enventually kills him
 	enemy.Health.Lock()
 	enemy.Health.TakeDamage(enemy)
-	onHit(enemy, enemy.Health.internalValue, enemy.Map.PInRenderArea(*enemy.Location))
 	health = enemy.Health.internalValue
+
+	// inform all players that the enemy has been hit
+	beforeRespawenNG := enemy.Map.PInRenderArea(*enemy.Location)
+	onHit(enemy, health, beforeRespawenNG)
+
+	// see if we killed him
 	if health < 1 {
 		p.Kills++
 		enemy.Deaths++
 
-		beforeRespawn(enemy, enemy.Map.PInRenderArea(*enemy.Location))
+		enemy.Health.Unlock()
+
+		beforeRespawn(enemy, beforeRespawenNG)
 		enemy.Respawn()
-		afterRespawn(enemy, enemy.Map.PInRenderArea(*enemy.Location))
+		afterRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
+		afterRespawn(enemy, afterRespawnNG)
 
 		health = 0
+	} else {
+		enemy.Health.Unlock()
 	}
-	enemy.Health.Unlock()
 
 	return health, p.Map.PInRenderArea(*p.Location), err
 }
