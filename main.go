@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -47,15 +48,26 @@ func gsInit() {
 	}
 
 	// Logging server
-	priority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return lvl >= zapcore.DebugLevel
+	enablerFunc := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl >= config.Log.Level
 	})
-	console := zapcore.Lock(os.Stdout)
-	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
-	logCore := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, console, priority),
-	)
-	logctx = zap.New(logCore)
+	var encoder zapcore.Encoder
+	switch config.Log.Config {
+	case "development", "dev":
+		zapConfig := zap.NewDevelopmentConfig()
+		if config.Log.Colored {
+			zapConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		}
+		encoder = zapcore.NewConsoleEncoder(zapConfig.EncoderConfig)
+	case "production", "prod":
+		zapConfig := zap.NewProductionConfig()
+		encoder = zapcore.NewJSONEncoder(zapConfig.EncoderConfig)
+	default:
+		fmt.Println("config.log.config is of unknown type. only 'development', 'dev', 'production' and 'prod' are allowed")
+		os.Exit(-1)
+	}
+	core := zapcore.NewTee(zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), enablerFunc))
+	logctx = zap.New(core)
 
 	log.Println("init database connections")
 	vbdbConfig := &vbdb.Config{
