@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"os"
 
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -62,17 +63,15 @@ type gameserverConfig struct {
 func loadConfig(path string) *gameserverConfig {
 	f, err := ioutil.ReadFile(path)
 	if err != nil {
-		logctx.Fatal("failed to load config",
-			zap.Error(err),
-			zap.String("path", path))
+		fmt.Println("failed to load config: " + err.Error())
+		os.Exit(-1)
 	}
 
 	conf := &gameserverConfig{}
-	err = json.Unmarshal([]byte(f), conf)
+	err = json.Unmarshal(f, conf)
 	if err != nil {
-		logctx.Fatal("failed to load config",
-			zap.Error(err),
-			zap.String("path", path))
+		fmt.Println("failed to unmarshal config file: " + err.Error())
+		os.Exit(-1)
 	}
 
 	return conf
