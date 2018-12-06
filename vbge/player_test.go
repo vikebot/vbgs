@@ -364,7 +364,7 @@ func TestPlayerAttack(t *testing.T) {
 			returnedHealth := 0
 			for i := 0; i < c.attackCount; i++ {
 				var err error
-				returnedHealth, _, err = p.Attack(func(e *Player, health int, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {})
+				returnedHealth, _, _, err = p.Attack(func(e *Player, health int, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {})
 				if err != nil {
 					t.Errorf("Attack() err = %v, wantedErr = false", err)
 					return
@@ -407,7 +407,7 @@ func TestPlayerAttackError(t *testing.T) {
 				Rl:       NewOpLimitations(),
 			}
 
-			_, _, err := p.Attack(func(e *Player, health int, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {})
+			_, _, _, err := p.Attack(func(e *Player, health int, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {})
 			if err == nil || err != c.wantedError {
 				t.Errorf("Attack() = %v, want %v", err.Error(), c.wantedError.Error())
 			}
