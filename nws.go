@@ -140,7 +140,7 @@ func nws(c *nwsclient) {
 		c.Ctx.Debug("disconnected. removed from registry")
 	}()
 
-	if !config.Network.WS.Flags.Debug {
+	if config.Network.WS.Flags.Debug {
 		updateDist.PushTypeFlag(c, "debug", true)
 		c.Ctx.Debug("sending debug flag to nwsclient")
 	}
