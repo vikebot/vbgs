@@ -55,7 +55,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 						return
 					}
 
-					updateDist.Push(nil, newUpdate("game", []byte(`{"grid":"`+ng[i].GRenderID+`","type":"spawn","playerinfo":`+string(pr)+`}`)), notifyChannelGroup, ng, c.LogCtx)
+					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"spawn","playerinfo":`+string(pr)+`}`)), notifyChannelPrivate, nil, c.LogCtx)
 				} else {
 					playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, e.UserID, battle, false)
 					if err != nil {
@@ -68,7 +68,6 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 					}
 
 					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelPrivate, nil, c.LogCtx)
-
 				}
 			}
 		})
