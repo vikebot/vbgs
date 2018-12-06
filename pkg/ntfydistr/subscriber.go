@@ -1,0 +1,56 @@
+package ntfydistr
+
+import "go.uber.org/zap"
+
+// SubscriberWriteFunc is a callback used by the Send operation from a
+// Subscriber to send the actual bytes over the wire. The callback should
+// return all errors unchanged to the Client, because the error types are
+// checked and used (therefore important for the correct control flow).
+type SubscriberWriteFunc func(notf SerializedNotificationBuffer) (disconnected bool, err error)
+
+// Subscriber represents a single entity that wants to receive notifications
+// for a specific Client.
+type Subscriber interface {
+	Send(notfs []SerializedNotificationBuffer) (disconnected bool)
+}
+
+type subscriber struct {
+	w    SubscriberWriteFunc
+	stop chan struct{}
+	log  *zap.Logger
+}
+
+func newSubscriber(w SubscriberWriteFunc, stop chan struct{}, log *zap.Logger) *subscriber {
+	return &subscriber{
+		w:    w,
+		stop: stop,
+		log:  log,
+	}
+}
+
+// Send sends all passed SerializedNotificationBuffer notifications and sends
+// them to the client using the subscribers SubscriberWriteFunc. Send returns
+// whether or not the subscriber has disconnected.
+func (s *subscriber) Send(notfs []SerializedNotificationBuffer) (disconnected bool) {
+	// send all notifications to the subscriber
+	s.log.Info("sending notifications", zap.Int("amount", len(notfs)))
+	for _, nBuf := range notfs {
+		// call SubscriberWriteFunc callback
+		disconnected, err := s.w(nBuf)
+		if err == nil {
+			// no error -> continue with next notification
+			continue
+		}
+
+		// see if the error is a disconnect error
+		if disconnected {
+			s.log.Info("remote client has forcely closed connection")
+			return true
+		}
+
+		// error unknown
+		s.log.Error("unable to send marshaled notification", zap.Error(err))
+	}
+
+	return false
+}
