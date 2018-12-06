@@ -347,8 +347,8 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 	health = enemy.Health.internalValue
 
 	// inform all players that the enemy has been hit
-	beforeRespawenNG := enemy.Map.PInRenderArea(*enemy.Location)
-	onHit(enemy, health, beforeRespawenNG)
+	beforeRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
+	onHit(enemy, health, beforeRespawnNG)
 
 	// see if we killed him
 	if health < 1 {
@@ -357,7 +357,7 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 
 		enemy.Health.Unlock()
 
-		beforeRespawn(enemy, beforeRespawenNG)
+		beforeRespawn(enemy, beforeRespawnNG)
 		enemy.Respawn()
 		afterRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
 		afterRespawn(enemy, afterRespawnNG)
@@ -412,6 +412,7 @@ func (p *Player) Spawn() error {
 			// If the field is empty we place the player
 			p.Map.Matrix[loc.Y][loc.X].JoinArea(p)
 			p.Location = &loc
+			p.Health = NewDefaultHealth()
 			return nil
 		}
 	}
