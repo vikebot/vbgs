@@ -44,7 +44,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 			}
 
 			for i := range ng {
-				l := ng[i].Location.RelativeFrom(e.Location)
+				l := e.Location.RelativeFrom(ng[i].Location)
 				if ng[i].UserID != e.UserID {
 					playerResp.Location = *l
 
