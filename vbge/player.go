@@ -70,7 +70,7 @@ func NewDebugPlayer(m *MapEntity) *Player {
 }
 
 // Rotate implements https://sdk-wiki.vikebot.com/#rotate
-func (p *Player) Rotate(angle string) NotifyGroup {
+func (p *Player) Rotate(angle string) (ng NotifyGroup, relativePos []*Location) {
 	if angle == angleRight {
 		switch p.WatchDir {
 		case dirNorth:
@@ -98,7 +98,17 @@ func (p *Player) Rotate(angle string) NotifyGroup {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
-	return p.Map.PInRenderArea(*p.Location)
+	// calculate the area in which player's need to be informed about this move
+	ng = p.Map.PInRenderArea(*p.Location)
+
+	// calculate relative positions (from the new position of the player) to all
+	// other players inside the notifygroup
+	relPos := make([]*Location, len(ng))
+	for i := range ng {
+		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	}
+
+	return ng, relPos
 }
 
 // Move implements https://sdk-wiki.vikebot.com/#move
@@ -304,20 +314,26 @@ type DeathEvent func(p *Player, ng NotifyGroup)
 type SpawnEvent func(p *Player, ng NotifyGroup)
 
 // Attack implements https://sdk-wiki.vikebot.com/#attack
-func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent) (enemyHealth int, ng NotifyGroup, err error) {
+func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent) (enemyHealth int, ng NotifyGroup, relativePos []*Location, err error) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
 	l := p.Location.DeepCopy()
 	l.AddDirection(p.WatchDir)
 
+	ng = p.Map.PInRenderArea(*p.Location)
+	relPos := make([]*Location, len(ng))
+	for i := range ng {
+		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	}
+
 	if !l.IsInMap() {
-		return 0, p.Map.PInRenderArea(*p.Location), ErrOutOfMap
+		return 0, ng, relPos, ErrOutOfMap
 	}
 
 	be := p.Map.Matrix[l.Y][l.X]
 	if !be.HasResident() {
-		return 0, p.Map.PInRenderArea(*p.Location), ErrNoEnemy
+		return 0, ng, relPos, ErrNoEnemy
 	}
 
 	// Safe enemy pointer because we eventually delete him from the map
@@ -351,7 +367,7 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 		enemy.Health.Unlock()
 	}
 
-	return health, p.Map.PInRenderArea(*p.Location), err
+	return health, ng, relPos, err
 }
 
 // Defend implements https://sdk-wiki.vikebot.com/#defend-and-undefend

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
@@ -28,8 +29,15 @@ func opRotate(c *ntcpclient, packet rotatePacket) {
 		return
 	}
 
-	ng := c.Player.Rotate(angle)
+	ng, relPos := c.Player.Rotate(angle)
 	c.RespondNil()
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"rotate","angle": "`+angle+`"}`)), notifyChannelGroup, ng, c.LogCtx)
+	for i := range ng {
+		updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+
+			`","type":"rotate","angle": "`+angle+`"`+
+			`,"loc":{"isabs":false,"x":`+strconv.Itoa(relPos[i].X)+`,
+	"y":`+strconv.Itoa(relPos[i].Y)+`}}`)), notifyChannelPrivate, nil, c.LogCtx)
+
+	}
+
 }
