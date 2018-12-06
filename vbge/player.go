@@ -413,6 +413,7 @@ func (p *Player) Spawn() error {
 			p.Map.Matrix[loc.Y][loc.X].JoinArea(p)
 			p.Location = &loc
 			p.Health = NewDefaultHealth()
+			p.WatchDir = dirNorth
 			return nil
 		}
 	}
