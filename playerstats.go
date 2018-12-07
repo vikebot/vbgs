@@ -19,6 +19,7 @@ type playersStats []playerStats
 // information of all players in the game
 func getPlayersStats() (ps playersStats, err error) {
 	for _, p := range battle.Players {
+		// TODO: use appropriate function call for loading only username and not whole user
 		user, success := vbdb.UserFromID(p.UserID)
 		if !success {
 			return ps, errors.New("unable to load User from db")
