@@ -169,6 +169,16 @@ func (ud *updateDistributor) PushInit(c *nwsclient, obj []byte) {
 	c.Notify(u)
 }
 
+func (ud *updateDistributor) PushStats(c *nwsclient, obj []byte) {
+	u := update{
+		UnixN: time.Now().UnixNano(),
+	}
+
+	u.Content = []byte(fmt.Sprintf(`{"type":"stats","obj":%s,"unixn":%s}`, obj, strconv.FormatInt(u.UnixN, 10)))
+
+	c.Notify(u)
+}
+
 func (ud *updateDistributor) HistoryAdd(u update) {
 	ud.HistorySyncRoot.Lock()
 	defer ud.HistorySyncRoot.Unlock()

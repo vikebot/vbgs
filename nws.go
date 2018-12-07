@@ -185,12 +185,29 @@ func nws(c *nwsclient) {
 
 	initObj, err := json.Marshal(init)
 	if err != nil {
-		c.Ctx.Error("failed sending message to websocket connection", zap.Error(err))
+		c.Ctx.Error("failed sending message (init) to websocket connection", zap.Error(err))
 		return
 	}
 
 	updateDist.PushInit(c, initObj)
 	c.Ctx.Debug("sending init package to nwsclient")
+
+	if config.Network.WS.Flags.Stats {
+		stats, err := getPlayersStats()
+		if err != nil {
+			c.Ctx.Error("failed getting stats", zap.Error(err))
+			return
+		}
+
+		statsObj, err := json.Marshal(stats)
+		if err != nil {
+			c.Ctx.Error("failed sending message (stats) to websocket connection")
+			return
+		}
+
+		updateDist.PushStats(c, statsObj)
+		c.Ctx.Debug("sending stats package to nwsclient")
+	}
 
 	for {
 		time.Sleep(time.Millisecond * 100)
