@@ -154,6 +154,7 @@ func nws(c *nwsclient) {
 	type initialGame struct {
 		TotalMapsize    vbge.Location        `json:"totalmapsize"`
 		ViewableMapsize vbge.Location        `json:"viewablemapsize"`
+		MaxHealth       int                  `json:"maxhealth"`
 		PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
 		Startplayer     string               `json:"startplayer"`
 	}
@@ -177,6 +178,7 @@ func nws(c *nwsclient) {
 			Y: vbge.MapHeight,
 		},
 		ViewableMapsize: viewableMapsize,
+		MaxHealth:       vbge.MaxHealth,
 		Startplayer:     player.GRenderID,
 		PlayerMapentity: playerMapentity.Matrix,
 	}
