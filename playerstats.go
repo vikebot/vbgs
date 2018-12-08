@@ -7,7 +7,7 @@ import (
 )
 
 type playerStats struct {
-	GRID     string `json"grid"`
+	GRID     string `json:"grid"`
 	Username string `json:"username"`
 	Kills    int    `json:"kills"`
 	Deaths   int    `json:"deaths"`
