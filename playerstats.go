@@ -18,15 +18,14 @@ type playersStats []playerStats
 // is a slice of playerStats, it's used for getting
 // information of all players in the game
 func getPlayersStats() (ps playersStats, err error) {
-	for _, p := range battle.Players {
-		// TODO: use appropriate function call for loading only username and not whole user
-		user, success := vbdb.UserFromID(p.UserID)
-		if !success {
-			return ps, errors.New("unable to load User from db")
-		}
+	usernames, success := vbdb.UsernamesFromRoundID(config.Battle.RoundID)
+	if !success {
+		return ps, errors.New("unable to load usernames from db")
+	}
 
+	for _, p := range battle.Players {
 		ps = append(ps, playerStats{
-			Username: user.Username,
+			Username: usernames[p.UserID],
 			Kills:    p.Kills,
 			Deaths:   p.Deaths,
 		})

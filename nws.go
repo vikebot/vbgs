@@ -193,20 +193,9 @@ func nws(c *nwsclient) {
 	c.Ctx.Debug("sending init package to nwsclient")
 
 	if config.Network.WS.Flags.Stats {
-		stats, err := getPlayersStats()
-		if err != nil {
-			c.Ctx.Error("failed getting stats", zap.Error(err))
-			return
-		}
-
-		statsObj, err := json.Marshal(stats)
-		if err != nil {
-			c.Ctx.Error("failed sending message (stats) to websocket connection")
-			return
-		}
-
-		updateDist.PushStats(c, statsObj)
-		c.Ctx.Debug("sending stats package to nwsclient")
+		// start goroutinge because pushStats can block the
+		// init packet if it's taken very long
+		go pushStats(c)
 	}
 
 	for {
@@ -247,4 +236,21 @@ func nws(c *nwsclient) {
 			c.Ctx.Warn("unknown error during sending nws update", zap.ByteString("content", u.Content), zap.Error(err))
 		}
 	}
+}
+
+func pushStats(c *nwsclient) {
+	stats, err := getPlayersStats()
+	if err != nil {
+		c.Ctx.Error("failed getting stats", zap.Error(err))
+		return
+	}
+
+	statsObj, err := json.Marshal(stats)
+	if err != nil {
+		c.Ctx.Error("failed sending message (stats) to websocket connection")
+		return
+	}
+
+	updateDist.PushStats(c, statsObj)
+	c.Ctx.Debug("sending stats package to nwsclient")
 }
