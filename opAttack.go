@@ -70,6 +70,26 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelPrivate, nil, c.LogCtx)
 				}
 			}
+		},
+		// func ChangedStats
+		func(p []vbge.Player, ng vbge.NotifyGroup) {
+			var ps playersStats
+
+			for i := range p {
+				ps = append(ps, playerStats{
+					GRID:   p[i].GRenderID,
+					Kills:  p[i].Kills,
+					Deaths: p[i].Deaths,
+				})
+			}
+
+			statsObj, err := json.Marshal(ps)
+			if err != nil {
+				c.LogCtx.Error("unable to marshal playerStats", zap.Error(err))
+				return
+			}
+
+			updateDist.Push(nil, newUpdate("stats", statsObj), notifyChannelGroup, ng, c.LogCtx)
 		})
 	if err != nil {
 		c.Respond(err.Error())

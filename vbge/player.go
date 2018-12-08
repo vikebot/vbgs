@@ -313,8 +313,12 @@ type DeathEvent func(p *Player, ng NotifyGroup)
 // SpawnEvent is called when a player has spawned
 type SpawnEvent func(p *Player, ng NotifyGroup)
 
+// StatsEvent is called when the stats of a player
+// has changed
+type StatsEvent func(p []Player, ng NotifyGroup)
+
 // Attack implements https://sdk-wiki.vikebot.com/#attack
-func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent) (enemyHealth int, ng NotifyGroup, relativePos []*Location, err error) {
+func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent, changedStats StatsEvent) (enemyHealth int, ng NotifyGroup, relativePos []*Location, err error) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
@@ -354,6 +358,16 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 	if health < 1 {
 		p.Kills++
 		enemy.Deaths++
+
+		// notify that the stats has changed
+		// copy the players so the KD is save for
+		// the stats TODO: find out if neccessary
+		var players = []Player{*p, *enemy}
+		go func() {
+			// TODO: getTheNG in another way to improve performance
+			allNg := p.Map.PInMap()
+			changedStats(players, allNg)
+		}()
 
 		enemy.Health.Unlock()
 
@@ -396,10 +410,10 @@ func (p *Player) GetHealth() (health int, ng NotifyGroup) {
 }
 
 // Spawn places the player randomly on the map as long as the location doesn't
-// already have a resident. If so Spawn will retry 20 times. If no suitable
+// already have a resident. If so Spawn will retry 500 times. If no suitable
 // location is found an error is returned.
 func (p *Player) Spawn() error {
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 500; i++ {
 		// Randomly generate a position inside the map
 		loc := Location{
 			X: rand.Int() % MapWidth,

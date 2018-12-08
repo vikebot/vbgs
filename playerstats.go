@@ -7,6 +7,7 @@ import (
 )
 
 type playerStats struct {
+	GRID     string `json"grid"`
 	Username string `json:"username"`
 	Kills    int    `json:"kills"`
 	Deaths   int    `json:"deaths"`
@@ -25,6 +26,7 @@ func getPlayersStats() (ps playersStats, err error) {
 
 	for _, p := range battle.Players {
 		ps = append(ps, playerStats{
+			GRID:     p.GRenderID,
 			Username: usernames[p.UserID],
 			Kills:    p.Kills,
 			Deaths:   p.Deaths,
