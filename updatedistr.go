@@ -174,7 +174,7 @@ func (ud *updateDistributor) PushStats(c *nwsclient, obj []byte) {
 		UnixN: time.Now().UnixNano(),
 	}
 
-	u.Content = []byte(fmt.Sprintf(`{"type":"stats","obj":%s,"unixn":%s}`, obj, strconv.FormatInt(u.UnixN, 10)))
+	u.Content = []byte(fmt.Sprintf(`{"type":"stats","obj":[%s],"unixn":%s}`, obj, strconv.FormatInt(u.UnixN, 10)))
 
 	c.Notify(u)
 }
