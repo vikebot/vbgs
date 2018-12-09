@@ -410,10 +410,10 @@ func (p *Player) GetHealth() (health int, ng NotifyGroup) {
 }
 
 // Spawn places the player randomly on the map as long as the location doesn't
-// already have a resident. If so Spawn will retry 500 times. If no suitable
+// already have a resident. If so Spawn will retry 100 times. If no suitable
 // location is found an error is returned.
 func (p *Player) Spawn() error {
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 100; i++ {
 		// Randomly generate a position inside the map
 		loc := Location{
 			X: rand.Int() % MapWidth,
