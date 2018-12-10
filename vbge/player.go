@@ -39,9 +39,9 @@ func NewPlayerWithSpawn(userID int, m *MapEntity) (p *Player, err error) {
 
 	// Search random picture
 	if rand.Int()%2 == 0 {
-		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)-1) + ".png"
+		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png"
 	} else {
-		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)-1) + ".png"
+		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png"
 	}
 
 	// Spawn the player
