@@ -61,7 +61,7 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 				// notifications
 				notfs = make([]SerializedNotificationBuffer, c.q.Length())
 				for i := 0; i < len(notfs); i++ {
-					notfs[i] = c.q.Remove().(SerializedNotificationBuffer)
+					notfs[i] = c.q.Remove().([]byte)
 				}
 			}()
 
