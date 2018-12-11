@@ -31,9 +31,9 @@ type dist struct {
 	clientsSync sync.RWMutex
 }
 
-// NewDist initializes a new notification Distributor and all it's child
+// NewDistributor initializes a new notification Distributor and all it's child
 // ClientDistributors.
-func NewDist(allUserIDs []int, stop chan struct{}, log *zap.Logger) Distributor {
+func NewDistributor(allUserIDs []int, stop chan struct{}, log *zap.Logger) Distributor {
 	// create distributor
 	d := &dist{
 		allUserIDs: allUserIDs,
