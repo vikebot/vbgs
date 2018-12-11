@@ -34,7 +34,7 @@ func opClienthello(c *ntcpclient, packet xhelloPacket) {
 
 		plainBuf, err := c.Crypt.Decrypt(buf)
 		if err != nil {
-			c.log.Warn("failed to decrypt", zap.Error(err))
+			c.Log.Warn("failed to decrypt", zap.Error(err))
 			c.Respond("Invalid cipher text - unable to decrypt")
 			return
 		}
@@ -61,7 +61,7 @@ func opClienthello(c *ntcpclient, packet xhelloPacket) {
 	if !envDisableCrypt {
 		cipherBuf, err := c.Crypt.Encrypt([]byte(cipher))
 		if err != nil {
-			c.log.Error("failed to encrypt serverhello challenge response", zap.Error(err))
+			c.Log.Error("failed to encrypt serverhello challenge response", zap.Error(err))
 			c.Respond(statusInternalServerError)
 			return
 		}
@@ -77,8 +77,8 @@ func opClienthello(c *ntcpclient, packet xhelloPacket) {
 	c.ClienthelloDone = true
 
 	// Connection verified -> enable complete encryption and send initial pc
-	c.log = c.log.With(zap.Int("user_id", c.UserID))
-	c.log.Info("authenticated")
+	c.Log = c.Log.With(zap.Int("user_id", c.UserID))
+	c.Log.Info("authenticated")
 
 	c.IsEncrypted = true
 	c.Pc = rand.Uint32() / 2

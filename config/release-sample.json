@@ -36,7 +36,8 @@
 				"pkey": "cert/pkey.pem"
 			},
 			"flags": {
-				"debug": false
+				"debug": false,
+				"stats": true
 			}
 		}
 	},

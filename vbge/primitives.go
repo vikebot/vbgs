@@ -72,6 +72,9 @@ var (
 	// RadarRadius is the radius around a player's location we use to collect
 	// counter metrics
 	radarRadius = 10
+
+	// maxScoutLength is the distance how far a player can scout
+	maxScoutLength = 100
 )
 
 // SetMapDimensions sets the default map dimensions (e.g. width and health)
@@ -109,5 +112,5 @@ func IsBlocktype(blocktypeCandidate string) bool {
 
 // IsDistance determines wether the `distanceCanidate` is actually a valid distance
 func IsDistance(distanceCandidate int) bool {
-	return distanceCandidate > 0 && distanceCandidate < 16
+	return distanceCandidate > 0 && distanceCandidate < maxScoutLength
 }

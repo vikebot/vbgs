@@ -48,6 +48,7 @@ type gameserverConfig struct {
 			} `json:"tls"`
 			Flags struct {
 				Debug bool `json:"debug"`
+				Stats bool `json:"stats"`
 			} `json:"flags"`
 		} `json:"ws"`
 	} `json:"network"`

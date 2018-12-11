@@ -24,7 +24,14 @@
 !.vscode/extensions.json
 
 # End of https://www.gitignore.io/api/go,visualstudiocode
+
+# Config files, exception for template
 config/*.json
 !config/release-sample.json
 
 vendor/
+# Log files
+vb_localhost_debugging_history.log
+
+# Build files
+vbgs

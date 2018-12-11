@@ -156,7 +156,7 @@ func nws(c *nwsclient) {
 		c.Ctx.Debug("disconnected. removed from registry")
 	}()
 
-	if !config.Network.WS.Flags.Debug {
+	if config.Network.WS.Flags.Debug {
 		updateDist.PushTypeFlag(c, "debug", true)
 		c.Ctx.Debug("sending debug flag to nwsclient")
 	}
@@ -170,6 +170,7 @@ func nws(c *nwsclient) {
 	type initialGame struct {
 		TotalMapsize    vbge.Location        `json:"totalmapsize"`
 		ViewableMapsize vbge.Location        `json:"viewablemapsize"`
+		MaxHealth       int                  `json:"maxhealth"`
 		PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
 		Startplayer     string               `json:"startplayer"`
 	}
@@ -193,18 +194,25 @@ func nws(c *nwsclient) {
 			Y: vbge.MapHeight,
 		},
 		ViewableMapsize: viewableMapsize,
+		MaxHealth:       vbge.MaxHealth,
 		Startplayer:     player.GRenderID,
 		PlayerMapentity: playerMapentity.Matrix,
 	}
 
 	initObj, err := json.Marshal(init)
 	if err != nil {
-		c.Ctx.Error("failed sending message to websocket connection", zap.Error(err))
+		c.Ctx.Error("failed sending message (init) to websocket connection", zap.Error(err))
 		return
 	}
 
 	updateDist.PushInit(c, initObj)
 	c.Ctx.Debug("sending init package to nwsclient")
+
+	if config.Network.WS.Flags.Stats {
+		// start goroutinge because pushStats can block the
+		// init packet if it's taken very long
+		go pushStats(c)
+	}
 
 	for {
 		time.Sleep(time.Millisecond * 100)
@@ -244,4 +252,21 @@ func nws(c *nwsclient) {
 			c.Ctx.Warn("unknown error during sending nws update", zap.ByteString("content", u.Content), zap.Error(err))
 		}
 	}
+}
+
+func pushStats(c *nwsclient) {
+	stats, err := getPlayersStats()
+	if err != nil {
+		c.Ctx.Error("failed getting stats", zap.Error(err))
+		return
+	}
+
+	statsObj, err := json.Marshal(stats)
+	if err != nil {
+		c.Ctx.Error("failed sending message (stats) to websocket connection")
+		return
+	}
+
+	updateDist.PushStats(c, statsObj)
+	c.Ctx.Debug("sending stats package to nwsclient")
 }

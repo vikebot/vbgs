@@ -39,9 +39,9 @@ func NewPlayerWithSpawn(userID int, m *MapEntity) (p *Player, err error) {
 
 	// Search random picture
 	if rand.Int()%2 == 0 {
-		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)-1) + ".png"
+		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png"
 	} else {
-		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)-1) + ".png"
+		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png"
 	}
 
 	// Spawn the player
@@ -70,7 +70,7 @@ func NewDebugPlayer(m *MapEntity) *Player {
 }
 
 // Rotate implements https://sdk-wiki.vikebot.com/#rotate
-func (p *Player) Rotate(angle string) NotifyGroup {
+func (p *Player) Rotate(angle string) (ng NotifyGroup, relativePos []*Location) {
 	if angle == angleRight {
 		switch p.WatchDir {
 		case dirNorth:
@@ -98,7 +98,17 @@ func (p *Player) Rotate(angle string) NotifyGroup {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
-	return p.Map.PInRenderArea(*p.Location)
+	// calculate the area in which player's need to be informed about this move
+	ng = p.Map.PInRenderArea(*p.Location)
+
+	// calculate relative positions (from the new position of the player) to all
+	// other players inside the notifygroup
+	relPos := make([]*Location, len(ng))
+	for i := range ng {
+		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	}
+
+	return ng, relPos
 }
 
 // Move implements https://sdk-wiki.vikebot.com/#move
@@ -303,21 +313,31 @@ type DeathEvent func(p *Player, ng NotifyGroup)
 // SpawnEvent is called when a player has spawned
 type SpawnEvent func(p *Player, ng NotifyGroup)
 
+// StatsEvent is called when the stats of a player
+// has changed
+type StatsEvent func(p []Player, ng NotifyGroup)
+
 // Attack implements https://sdk-wiki.vikebot.com/#attack
-func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent) (enemyHealth int, ng NotifyGroup, err error) {
+func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent, changedStats StatsEvent) (enemyHealth int, ng NotifyGroup, relativePos []*Location, err error) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
 	l := p.Location.DeepCopy()
 	l.AddDirection(p.WatchDir)
 
+	ng = p.Map.PInRenderArea(*p.Location)
+	relPos := make([]*Location, len(ng))
+	for i := range ng {
+		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	}
+
 	if !l.IsInMap() {
-		return 0, p.Map.PInRenderArea(*p.Location), ErrOutOfMap
+		return 0, ng, relPos, ErrOutOfMap
 	}
 
 	be := p.Map.Matrix[l.Y][l.X]
 	if !be.HasResident() {
-		return 0, p.Map.PInRenderArea(*p.Location), ErrNoEnemy
+		return 0, ng, relPos, ErrNoEnemy
 	}
 
 	// Safe enemy pointer because we eventually delete him from the map
@@ -331,17 +351,27 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 	health = enemy.Health.internalValue
 
 	// inform all players that the enemy has been hit
-	beforeRespawenNG := enemy.Map.PInRenderArea(*enemy.Location)
-	onHit(enemy, health, beforeRespawenNG)
+	beforeRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
+	onHit(enemy, health, beforeRespawnNG)
 
 	// see if we killed him
 	if health < 1 {
 		p.Kills++
 		enemy.Deaths++
 
+		// notify that the stats has changed
+		// copy the players so the KD is save for
+		// the stats TODO: find out if neccessary
+		var players = []Player{*p, *enemy}
+		go func() {
+			// TODO: getTheNG in another way to improve performance
+			allNg := p.Map.PInMap()
+			changedStats(players, allNg)
+		}()
+
 		enemy.Health.Unlock()
 
-		beforeRespawn(enemy, beforeRespawenNG)
+		beforeRespawn(enemy, beforeRespawnNG)
 		enemy.Respawn()
 		afterRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
 		afterRespawn(enemy, afterRespawnNG)
@@ -351,7 +381,7 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 		enemy.Health.Unlock()
 	}
 
-	return health, p.Map.PInRenderArea(*p.Location), err
+	return health, ng, relPos, err
 }
 
 // Defend implements https://sdk-wiki.vikebot.com/#defend-and-undefend
@@ -380,10 +410,10 @@ func (p *Player) GetHealth() (health int, ng NotifyGroup) {
 }
 
 // Spawn places the player randomly on the map as long as the location doesn't
-// already have a resident. If so Spawn will retry 20 times. If no suitable
+// already have a resident. If so Spawn will retry 100 times. If no suitable
 // location is found an error is returned.
 func (p *Player) Spawn() error {
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 100; i++ {
 		// Randomly generate a position inside the map
 		loc := Location{
 			X: rand.Int() % MapWidth,
@@ -396,6 +426,8 @@ func (p *Player) Spawn() error {
 			// If the field is empty we place the player
 			p.Map.Matrix[loc.Y][loc.X].JoinArea(p)
 			p.Location = &loc
+			p.Health = NewDefaultHealth()
+			p.WatchDir = dirNorth
 			return nil
 		}
 	}

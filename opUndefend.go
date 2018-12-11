@@ -18,5 +18,5 @@ func opUndefend(c *ntcpclient, packtet undefendPacket) {
 	}
 	c.RespondNil()
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"undefend"}`)), notifyChannelGroup, ng, c.log)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"undefend"}`)), notifyChannelGroup, ng, c.Log)
 }

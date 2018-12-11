@@ -41,10 +41,10 @@ func NewMapEntity(width, height int) *MapEntity {
 // around the passend location. Result is returned as a `NotifyGroup`. This
 // function isn't safe for concurrent use.
 func (me *MapEntity) PInRenderArea(l Location) NotifyGroup {
-	startX := vbcore.MaxInt(0, l.X-HrWidth+1)
-	endX := vbcore.MinInt(MapWidth-1, l.X+HrWidth+1)
-	startY := vbcore.MaxInt(0, l.Y-HrHeight+1)
-	endY := vbcore.MinInt(MapHeight-1, l.Y+HrHeight+1)
+	startX := vbcore.MaxInt(0, l.X-HrWidth)
+	endX := vbcore.MinInt(MapWidth-1, l.X+HrWidth)
+	startY := vbcore.MaxInt(0, l.Y-HrHeight)
+	endY := vbcore.MinInt(MapHeight-1, l.Y+HrHeight)
 
 	inarea := []*Player{}
 
@@ -59,21 +59,36 @@ func (me *MapEntity) PInRenderArea(l Location) NotifyGroup {
 	return inarea
 }
 
+// PInMap returns all players on the map
+func (me *MapEntity) PInMap() NotifyGroup {
+	players := []*Player{}
+
+	for y := 0; y < len(me.Matrix); y++ {
+		for x := 0; x < len(me.Matrix[0]); x++ {
+			if me.Matrix[y][x].HasResident() {
+				players = append(players, me.Matrix[y][x].Resident)
+			}
+		}
+	}
+
+	return players
+}
+
 // PInRenderAreaCombined returns all the players that are inside the render
 // area around the passend locations. The minimum rectangle containing both
 // locations is calculated and searched for players. The Result is returned
 // as a `NotifyGroup`. This function isn't safe for concurrent use.
 func (me *MapEntity) PInRenderAreaCombined(oldL *Location, newL *Location) NotifyGroup {
-	startX := vbcore.MinInt(oldL.X-HrWidth+1, newL.X-HrWidth+1)
+	startX := vbcore.MinInt(oldL.X-HrWidth, newL.X-HrWidth)
 	startX = vbcore.MaxInt(0, startX)
 
-	endX := vbcore.MaxInt(oldL.X+HrWidth+1, newL.X+HrWidth+1)
+	endX := vbcore.MaxInt(oldL.X+HrWidth, newL.X+HrWidth)
 	endX = vbcore.MinInt(MapWidth-1, endX)
 
-	startY := vbcore.MinInt(oldL.Y-HrHeight+1, newL.Y-HrHeight+1)
+	startY := vbcore.MinInt(oldL.Y-HrHeight, newL.Y-HrHeight)
 	startY = vbcore.MaxInt(0, startY)
 
-	endY := vbcore.MaxInt(oldL.Y+HrHeight+1, newL.Y+HrHeight+1)
+	endY := vbcore.MaxInt(oldL.Y+HrHeight, newL.Y+HrHeight)
 	endY = vbcore.MinInt(MapHeight-1, endY)
 
 	inarea := []*Player{}

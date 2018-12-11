@@ -26,5 +26,5 @@ func opEnvironment(c *ntcpclient, packet environmentPacket) {
 		EnvironmentMatrix: matrix,
 	})
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"environment"}`)), notifyChannelGroup, ng, c.log)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"environment"}`)), notifyChannelGroup, ng, c.Log)
 }

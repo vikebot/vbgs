@@ -44,7 +44,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 	newLine := vbge.GetNewLineMapentity(vbge.RenderWidth, c.Player.UserID, battle, dir)
 	line, err := json.Marshal(&newLine)
 	if err != nil {
-		c.log.Error("unable to parse json", zap.Error(err))
+		c.Log.Error("unable to parse json", zap.Error(err))
 		return
 	}
 
@@ -64,7 +64,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 		// marshal response
 		pr, err := json.Marshal(playerResp)
 		if err != nil {
-			c.log.Error("unable to marshal vbge.PlayerResp", zap.Error(err))
+			c.Log.Error("unable to marshal vbge.PlayerResp", zap.Error(err))
 			return
 		}
 
@@ -76,6 +76,6 @@ func opMove(c *ntcpclient, packet movePacket) {
 					"y":`+strconv.Itoa(relPos[i].Y)+`},"newline":`+string(line)+`}`)),
 			notifyChannelPrivate,
 			nil,
-			c.log)
+			c.Log)
 	}
 }

@@ -68,7 +68,7 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 	c := newNtcpclient(conn.RemoteAddr(), conn, ctx)
 	buf := bufio.NewReader(conn)
 
-	c.log.Info("connected")
+	c.Log.Info("connected")
 
 	for {
 		data, err := buf.ReadBytes('\n')
@@ -83,7 +83,7 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 				return
 			}
 
-			c.log.Warn("unknown error during ntcp read", zap.Error(err))
+			c.Log.Warn("unknown error during ntcp read", zap.Error(err))
 			return
 		}
 
@@ -92,7 +92,7 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 }
 
 func disconnect(c *ntcpclient) {
-	c.log.Info("disconnected")
+	c.Log.Info("disconnected")
 	updateDist.PushTypeInfo(c, false)
 	ntcpRegistry.Delete(c)
 }
