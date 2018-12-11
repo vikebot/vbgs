@@ -24,5 +24,5 @@ func opWatch(c *ntcpclient, packet watchPacket) {
 	c.RespondObj(&watchResponse{
 		HealthMatrix: matrix,
 	})
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"watch"}`)), notifyChannelGroup, ng, c.LogCtx)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"watch"}`)), notifyChannelGroup, ng, c.log)
 }

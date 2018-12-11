@@ -37,7 +37,7 @@ func dispatch(c *ntcpclient, data []byte, packet typePacket) {
 	case "agreeconn":
 		// Check if this client has already a agreed connection
 		if err = ntcpRegistry.Put(c); err != nil {
-			logctx.Warn("multiple connections for same user", zap.Error(err))
+			log.Warn("multiple connections for same user", zap.Error(err))
 			c.Respond("Connection already open - Please close any previous connections before initializing a new one.")
 			return
 		}

@@ -23,5 +23,5 @@ func opHealth(c *ntcpclient, packtet healthPacket) {
 		Health: health,
 	})
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"health","value":"`+strconv.Itoa(health)+`"}`)), notifyChannelGroup, ng, c.LogCtx)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"health","value":"`+strconv.Itoa(health)+`"}`)), notifyChannelGroup, ng, c.log)
 }

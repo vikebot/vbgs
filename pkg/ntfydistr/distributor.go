@@ -16,6 +16,7 @@ const (
 // deliver notifications to them based on different delivery-channels (for
 // example: group and broadcast).
 type Distributor interface {
+	Close()
 	GetClient(userID int) Client
 	PushGroup(notificationType string, userIDs []int, notification interface{}, log *zap.Logger)
 	PushBroadcast(notificationType string, notification interface{}, log *zap.Logger)
@@ -29,6 +30,8 @@ type dist struct {
 	allUserIDs  []int
 	clients     map[int]*client
 	clientsSync sync.RWMutex
+	stop        chan struct{}
+	wg          sync.WaitGroup
 }
 
 // NewDistributor initializes a new notification Distributor and all it's child
@@ -48,11 +51,21 @@ func NewDistributor(allUserIDs []int, stop chan struct{}, log *zap.Logger) Distr
 		// add client to store
 		d.clients[userID] = c
 
-		// run client updater
-		go c.run(stop, log.Named("ntfydistr.Client."+strconv.Itoa(userID)))
+		// run client updater and increase waitgroup
+		d.wg.Add(1)
+		go func(userID int) {
+			defer d.wg.Done()
+
+			c.run(stop, log.Named("ntfydistr.Client."+strconv.Itoa(userID)))
+		}(userID)
 	}
 
 	return d
+}
+
+func (d *dist) Close() {
+	<-d.stop
+	d.wg.Wait()
 }
 
 // GetClient returns the Client if currently subscribed. If the client is not

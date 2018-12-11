@@ -26,11 +26,11 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 	health, ng, err := c.Player.Attack(
 		// func onHit
 		func(e *vbge.Player, health int, ng vbge.NotifyGroup) {
-			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"health","value":`+strconv.Itoa(health)+`}`)), notifyChannelGroup, ng, c.LogCtx)
+			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"health","value":`+strconv.Itoa(health)+`}`)), notifyChannelGroup, ng, c.log)
 		},
 		// func beforeRespawn
 		func(e *vbge.Player, ng vbge.NotifyGroup) {
-			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"death"}`)), notifyChannelGroup, ng, c.LogCtx)
+			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"death"}`)), notifyChannelGroup, ng, c.log)
 		},
 		// func afterRespawn
 		func(e *vbge.Player, ng vbge.NotifyGroup) {
@@ -47,15 +47,15 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 			for i := range ng {
 				l := ng[i].Location.RelativeFrom(e.Location)
 				if ng[i].UserID == e.UserID {
-					updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"spawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelGroup, nil, c.LogCtx)
+					updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"spawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelGroup, nil, c.log)
 				} else {
-					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+ng[i].GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`}}`)), notifyChannelGroup, nil, c.LogCtx)
+					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+ng[i].GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`}}`)), notifyChannelGroup, nil, c.log)
 				}
 			}
 		})
 	if err != nil {
 		c.Respond(err.Error())
-		updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"attack"}`)), notifyChannelGroup, ng, c.LogCtx)
+		updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"attack"}`)), notifyChannelGroup, ng, c.log)
 		return
 	}
 
@@ -63,5 +63,5 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 		Health: health,
 	})
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"attack"}`)), notifyChannelGroup, ng, c.LogCtx)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"attack"}`)), notifyChannelGroup, ng, c.log)
 }

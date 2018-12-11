@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/vikebot/vbcore"
 	"github.com/vikebot/vbdb"
+	"github.com/vikebot/vbgs/pkg/ntfydistr"
 	"github.com/vikebot/vbgs/vbge"
 	"go.uber.org/zap"
 )
@@ -37,7 +38,7 @@ func nwsInit(start chan bool, shutdown chan bool) {
 
 	go func() {
 		// Wait for start signal
-		logctx.Info("nws ready. waiting for start signal")
+		log.Info("nws ready. waiting for start signal")
 		<-start
 
 		go nwsRun(srv)
@@ -46,7 +47,7 @@ func nwsInit(start chan bool, shutdown chan bool) {
 		<-shutdown
 		err := srv.Shutdown(nil)
 		if err != nil {
-			logctx.Warn("nws shutdown failed", zap.Error(err))
+			log.Warn("nws shutdown failed", zap.Error(err))
 		}
 	}()
 }
@@ -54,7 +55,7 @@ func nwsInit(start chan bool, shutdown chan bool) {
 func nwsRun(srv *http.Server) {
 	var srvErr error
 
-	logctx.Info("accepting clients on nws listener")
+	log.Info("accepting clients on nws listener")
 	if config.Network.WS.TLS.Active {
 		srvErr = srv.ListenAndServeTLS(config.Network.WS.TLS.Cert, config.Network.WS.TLS.PKey)
 	} else {
@@ -62,7 +63,7 @@ func nwsRun(srv *http.Server) {
 	}
 
 	if srvErr != nil {
-		logctx.Fatal("nws listen failed", zap.Error(srvErr))
+		log.Fatal("nws listen failed", zap.Error(srvErr))
 	}
 }
 
@@ -70,7 +71,7 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 	wsrqid := vbcore.FastRandomString(32)
 	c := &nwsclient{
 		WSRqID: wsrqid,
-		Ctx:    logctx.With(zap.String("wsrqid", wsrqid)),
+		Ctx:    log.With(zap.String("wsrqid", wsrqid)),
 	}
 
 	c.Ctx.Info("connected", zap.String("ip", r.RemoteAddr))
@@ -131,6 +132,21 @@ func nws(c *nwsclient) {
 		}
 		return
 	}
+
+	// subscribe websocket connection for all notifications to this user and
+	// send them as long as err isn't a disconnect from the remote websocket
+	dist.GetClient(c.UserID).Sub(func(notf ntfydistr.SerializedNotificationBuffer) (disconnected bool, err error) {
+		err = c.Write(notf)
+		if err == nil {
+			return
+		}
+
+		if _, ok := err.(*net.OpError); ok || websocket.IsUnexpectedCloseError(err) {
+			return true, err
+		}
+
+		return
+	}, c.Ctx)
 
 	c.Queue = queue.New()
 	nwsRegistry.Put(c)

@@ -21,7 +21,7 @@ func opLogin(c *ntcpclient, packet loginPacket) {
 		return
 	}
 
-	v, exists, success := vbdb.RoundentryFromRoundticketCtx(*packet.Obj.RoundTicket, c.LogCtx)
+	v, exists, success := vbdb.RoundentryFromRoundticketCtx(*packet.Obj.RoundTicket, c.log)
 	if !success {
 		c.Respond(statusInternalServerError)
 		return
@@ -33,7 +33,7 @@ func opLogin(c *ntcpclient, packet loginPacket) {
 
 	if config.Battle.RoundID != v.RoundID {
 		c.Respond("Your roundticket references an already finished game.")
-		c.LogCtx.Warn("valid watchtoken references invalid round",
+		c.log.Warn("valid watchtoken references invalid round",
 			zap.Int("config_round_id", config.Battle.RoundID),
 			zap.Int("watchtoken_round_id", v.RoundID))
 		return
@@ -43,13 +43,13 @@ func opLogin(c *ntcpclient, packet loginPacket) {
 
 	keybuf, err := base64.StdEncoding.DecodeString(*v.AESKey)
 	if err != nil {
-		c.LogCtx.Error("failed to decode base64 string", zap.String("aeskey", *v.AESKey))
+		c.log.Error("failed to decode base64 string", zap.String("aeskey", *v.AESKey))
 		c.Respond(statusInternalServerError)
 		return
 	}
 	err = c.InitAes(keybuf)
 	if err != nil {
-		c.LogCtx.Error("failed to init AES from key buffer", zap.Error(err))
+		c.log.Error("failed to init AES from key buffer", zap.Error(err))
 		c.Respond(statusInternalServerError)
 		return
 	}

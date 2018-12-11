@@ -25,5 +25,5 @@ func opRadar(c *ntcpclient, packet radarPacket) {
 		Counter: counter,
 	})
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"radar"}`)), notifyChannelGroup, ng, c.LogCtx)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"radar"}`)), notifyChannelGroup, ng, c.log)
 }

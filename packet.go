@@ -13,7 +13,7 @@ func packetHandler(c *ntcpclient, data []byte) {
 	if c.IsEncrypted && !envDisableCrypt {
 		plainBuf, err := c.Crypt.DecryptBase64(data)
 		if err != nil {
-			c.LogCtx.Warn("failed to decrypt cipher", zap.Error(err))
+			c.log.Warn("failed to decrypt cipher", zap.Error(err))
 			c.Respond("Invalid cipher text - unable to decrypt")
 			return
 		}
@@ -21,7 +21,7 @@ func packetHandler(c *ntcpclient, data []byte) {
 	}
 
 	// Log the incoming packet as debug message
-	c.LogCtx.Debug("received",
+	c.log.Debug("received",
 		zap.String("packet", string(data)),
 		zap.Uint32("seqnr", c.Pc-c.StartPc))
 

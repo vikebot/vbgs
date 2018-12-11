@@ -31,5 +31,5 @@ func opRotate(c *ntcpclient, packet rotatePacket) {
 	ng := c.Player.Rotate(angle)
 	c.RespondNil()
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"rotate","angle": "`+angle+`"}`)), notifyChannelGroup, ng, c.LogCtx)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"rotate","angle": "`+angle+`"}`)), notifyChannelGroup, ng, c.log)
 }

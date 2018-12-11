@@ -44,5 +44,5 @@ func opScout(c *ntcpclient, packet scoutPacket) {
 		Counter: counter,
 	})
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"scout","distance":"`+strconv.Itoa(distance)+`"}`)), notifyChannelGroup, ng, c.LogCtx)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"scout","distance":"`+strconv.Itoa(distance)+`"}`)), notifyChannelGroup, ng, c.log)
 }

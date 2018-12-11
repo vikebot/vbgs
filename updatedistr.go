@@ -185,7 +185,7 @@ func (ud *updateDistributor) InitHistoryWorker(start chan bool, shutdown chan bo
 
 	go func() {
 		defer f.Close()
-		ctx := logctx.With(zap.String("worker", "history_appender"))
+		ctx := log.With(zap.String("worker", "history_appender"))
 
 		var totsafed int64
 		totsafed = 0
