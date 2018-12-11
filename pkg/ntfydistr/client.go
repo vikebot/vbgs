@@ -17,6 +17,8 @@ type Client interface {
 	UserID() int
 	Sub(w SubscriberWriteFunc, log *zap.Logger)
 	Push(notificationType string, notification interface{}, log *zap.Logger)
+	PushChat(msg string, sev Severity, log *zap.Logger)
+	PushChatPrefixed(prefix, msg string, sev Severity, log *zap.Logger)
 	PushInitialState(props map[string]string, user *vbcore.SafeUser, log *zap.Logger)
 	PushInfo(established bool, ip, sdk, sdkLink, os string, log *zap.Logger)
 }
@@ -151,6 +153,23 @@ func (c *client) Push(notificationType string, notification interface{}, log *za
 
 	// queue for pushing to client
 	c.q.Add(buf)
+}
+
+// PushChat makes it convient to send the message with it's severity level and
+// the default prefix to the client. The method is safe for concurrent use.
+func (c *client) PushChat(msg string, sev Severity, log *zap.Logger) {
+	c.PushChatPrefixed(defaultChatPrefix, msg, sev, log)
+}
+
+// PushChatPrefixed makes it convient to send the message with it's severity
+// level and the defined prefix to the client. The method is safe for
+// concurrent use.
+func (c *client) PushChatPrefixed(prefix, msg string, sev Severity, log *zap.Logger) {
+	c.Push("CHAT", struct {
+		Prefix   string   `json:"prefix"`
+		Msg      string   `json:"msg"`
+		Severity Severity `json:"severity"`
+	}{prefix, msg, sev}, log)
 }
 
 // PushInitialState makes it convenient to send the initial state (properties

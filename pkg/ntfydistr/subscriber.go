@@ -4,8 +4,10 @@ import "go.uber.org/zap"
 
 // SubscriberWriteFunc is a callback used by the Send operation from a
 // Subscriber to send the actual bytes over the wire. The callback should
-// return all errors unchanged to the Client, because the error types are
-// checked and used (therefore important for the correct control flow).
+// return all errors unchanged to the Client. The disconnected return value
+// indicates whether or not the returned error is due to a disconnect from
+// a remote party. If disconnected is true the current subscription will be
+// cancelled and not called again.
 type SubscriberWriteFunc func(notf SerializedNotificationBuffer) (disconnected bool, err error)
 
 // Subscriber represents a single entity that wants to receive notifications

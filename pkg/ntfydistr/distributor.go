@@ -1,9 +1,14 @@
 package ntfydistr
 
 import (
+	"strconv"
 	"sync"
 
 	"go.uber.org/zap"
+)
+
+const (
+	defaultChatPrefix = "SERVER"
 )
 
 // Distributor is the general managing instance for all notifications that
@@ -44,7 +49,7 @@ func NewDist(allUserIDs []int, stop chan struct{}, log *zap.Logger) Distributor 
 		d.clients[userID] = c
 
 		// run client updater
-		go c.run(stop, log)
+		go c.run(stop, log.Named("ntfydistr.Client."+strconv.Itoa(userID)))
 	}
 
 	return d
@@ -59,12 +64,11 @@ func (d *dist) GetClient(userID int) Client {
 	return d.clients[userID]
 }
 
-// PushGroup pushes the notification to each member of the group (defined
-// through userIDs). The notification interface must be JSON serializable.
-// The method is safe for concurrent use.
-func (d *dist) PushGroup(notificationType string, userIDs []int, notification interface{}, log *zap.Logger) {
-	// lock clients and search all Clients, for which we have userIDs
+func (d *dist) clientsForUserIDs(userIDs []int) []Client {
 	d.clientsSync.RLock()
+	defer d.clientsSync.RUnlock()
+
+	// lock clients and search all, for which we have userIDs
 	clients := []Client{}
 	for _, userID := range userIDs {
 		// lookup client
@@ -73,7 +77,15 @@ func (d *dist) PushGroup(notificationType string, userIDs []int, notification in
 			clients = append(clients, c)
 		}
 	}
-	d.clientsSync.RUnlock()
+
+	return clients
+}
+
+// PushGroup pushes the notification to each member of the group (defined
+// through userIDs). The notification interface must be JSON serializable.
+// The method is safe for concurrent use.
+func (d *dist) PushGroup(notificationType string, userIDs []int, notification interface{}, log *zap.Logger) {
+	clients := d.clientsForUserIDs(userIDs)
 
 	// push notification to each client
 	for _, c := range clients {
@@ -91,18 +103,19 @@ func (d *dist) PushBroadcast(notificationType string, notification interface{}, 
 // prefix to all clients listed in userIDs. The method is safe for concurrent
 // use.
 func (d *dist) PushChatGroup(userIDs []int, msg string, sev Severity, log *zap.Logger) {
-	d.PushChatPrefixedGroup(userIDs, "SERVER", msg, sev, log)
+	d.PushChatPrefixedGroup(userIDs, defaultChatPrefix, msg, sev, log)
 }
 
 // PushChatPrefixedGroup pushes the message with it's severity level and the
 // defined prefix to all clients listed in userIDs. The method is safe for
 // concurrent use.
 func (d *dist) PushChatPrefixedGroup(userIDs []int, prefix, msg string, sev Severity, log *zap.Logger) {
-	d.PushGroup("CHAT", userIDs, struct {
-		Prefix   string   `json:"prefix"`
-		Msg      string   `json:"msg"`
-		Severity Severity `json:"severity"`
-	}{prefix, msg, sev}, log)
+	clients := d.clientsForUserIDs(userIDs)
+
+	// push notification to each client
+	for _, c := range clients {
+		c.PushChatPrefixed(prefix, msg, sev, log)
+	}
 }
 
 // PushChatBroadcast pushes the message with it's severity level and the
