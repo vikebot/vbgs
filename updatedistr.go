@@ -104,13 +104,13 @@ func (ud *updateDistributor) PushTypeUserinfo(ws *nwsclient) {
 	var player *vbge.Player
 	var ok bool
 	if player, ok = battle.Players[ws.UserID]; !ok {
-		ws.Ctx.Warn("unable to find player for connected (legit) websocket")
+		ws.Log.Warn("unable to find player for connected (legit) websocket")
 		return
 	}
 
-	user, success := vbdb.UserFromIDCtx(ws.UserID, ws.Ctx)
+	user, success := vbdb.UserFromIDCtx(ws.UserID, ws.Log)
 	if !success {
-		ws.Ctx.Warn("unable to load user")
+		ws.Log.Warn("unable to load user")
 		return
 	}
 
