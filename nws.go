@@ -71,21 +71,21 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 	wsrqid := vbcore.FastRandomString(32)
 	c := &nwsclient{
 		WSRqID: wsrqid,
-		Ctx:    log.With(zap.String("wsrqid", wsrqid)),
+		Log:    log.With(zap.String("wsrqid", wsrqid)),
 	}
 
-	c.Ctx.Info("connected", zap.String("ip", r.RemoteAddr))
+	c.Log.Info("connected", zap.String("ip", r.RemoteAddr))
 
 	ws, err := nwsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		c.Ctx.Error("failed to upgrade http connection", zap.Error(err))
+		c.Log.Error("failed to upgrade http connection", zap.Error(err))
 		return
 	}
 	defer func() {
-		c.Ctx.Info("closed", zap.String("ip", r.RemoteAddr))
+		c.Log.Info("closed", zap.String("ip", r.RemoteAddr))
 		err = ws.Close()
 		if err != nil {
-			c.Ctx.Error("error during closing websocket", zap.Error(err))
+			c.Log.Error("error during closing websocket", zap.Error(err))
 		}
 	}()
 
@@ -97,38 +97,38 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 func nws(c *nwsclient) {
 	mt, watchtoken, err := c.Ws.ReadMessage()
 	if err != nil {
-		c.Ctx.Warn("failed reading message from websocket", zap.Error(err))
+		c.Log.Warn("failed reading message from websocket", zap.Error(err))
 		return
 	}
 	c.Mt = mt
 
-	v, exists, success := vbdb.RoundentryFromWatchtokenCtx(string(watchtoken), c.Ctx)
+	v, exists, success := vbdb.RoundentryFromWatchtokenCtx(string(watchtoken), c.Log)
 	if !success {
 		err = c.WriteStr("Internal server error")
 		if err != nil {
-			c.Ctx.Warn("unable to send internal server error message", zap.Error(err))
+			c.Log.Warn("unable to send internal server error message", zap.Error(err))
 		}
 		return
 	}
 	if !exists {
-		c.Ctx.Warn("client provided unknown watchtoken", zap.String("watchtoken", string(watchtoken)))
+		c.Log.Warn("client provided unknown watchtoken", zap.String("watchtoken", string(watchtoken)))
 		err = c.WriteStr("Unknown watchtoken")
 		if err != nil {
-			c.Ctx.Warn("unable to send unknown watchtoken error message", zap.Error(err))
+			c.Log.Warn("unable to send unknown watchtoken error message", zap.Error(err))
 		}
 		return
 	}
 	c.UserID = v.UserID
-	c.Ctx.Info("authenticated", zap.Int("user_id", v.UserID))
+	c.Log.Info("authenticated", zap.Int("user_id", v.UserID))
 
 	if config.Battle.RoundID != v.RoundID {
-		c.Ctx.Warn("valid watchtoken references invalid round",
+		c.Log.Warn("valid watchtoken references invalid round",
 			zap.Int("config_round_id", config.Battle.RoundID),
 			zap.Int("watchtoken_round_id", v.RoundID))
 
 		err = c.WriteStr("Internal server error")
 		if err != nil {
-			c.Ctx.Warn("unable to send internal server error message", zap.Error(err))
+			c.Log.Warn("unable to send internal server error message", zap.Error(err))
 		}
 		return
 	}
@@ -146,19 +146,13 @@ func nws(c *nwsclient) {
 		}
 
 		return
-	}, c.Ctx)
+	}, c.Log)
 
 	c.Queue = queue.New()
-	nwsRegistry.Put(c)
-
-	defer func() {
-		nwsRegistry.Delete(c)
-		c.Ctx.Debug("disconnected. removed from registry")
-	}()
 
 	if config.Network.WS.Flags.Debug {
 		updateDist.PushTypeFlag(c, "debug", true)
-		c.Ctx.Debug("sending debug flag to nwsclient")
+		c.Log.Debug("sending debug flag to nwsclient")
 	}
 
 	// send user info
@@ -184,7 +178,7 @@ func nws(c *nwsclient) {
 
 	playerMapentity, err := vbge.GetViewableMapentity(viewableMapsize.X, viewableMapsize.Y, c.UserID, battle, true)
 	if err != nil {
-		c.Ctx.Error("failed getting mapentity", zap.Error(err))
+		c.Log.Error("failed getting mapentity", zap.Error(err))
 		return
 	}
 
@@ -201,12 +195,12 @@ func nws(c *nwsclient) {
 
 	initObj, err := json.Marshal(init)
 	if err != nil {
-		c.Ctx.Error("failed sending message (init) to websocket connection", zap.Error(err))
+		c.Log.Error("failed sending message (init) to websocket connection", zap.Error(err))
 		return
 	}
 
 	updateDist.PushInit(c, initObj)
-	c.Ctx.Debug("sending init package to nwsclient")
+	c.Log.Debug("sending init package to nwsclient")
 
 	if config.Network.WS.Flags.Stats {
 		// start goroutinge because pushStats can block the
@@ -232,7 +226,7 @@ func nws(c *nwsclient) {
 			continue
 		}
 
-		c.Ctx.Debug("sending ws-updates", zap.Int("amount", len(updates)))
+		c.Log.Debug("sending ws-updates", zap.Int("amount", len(updates)))
 		for _, u := range updates {
 			err = c.Write(u.Content)
 			if err == nil {
@@ -240,16 +234,16 @@ func nws(c *nwsclient) {
 			}
 
 			if websocket.IsUnexpectedCloseError(err) {
-				c.Ctx.Info("remote nws client forcely closed connection")
+				c.Log.Info("remote nws client forcely closed connection")
 				return
 			}
 
 			if _, ok := err.(*net.OpError); ok {
-				c.Ctx.Info("error while writing to ws")
+				c.Log.Info("error while writing to ws")
 				return
 			}
 
-			c.Ctx.Warn("unknown error during sending nws update", zap.ByteString("content", u.Content), zap.Error(err))
+			c.Log.Warn("unknown error during sending nws update", zap.ByteString("content", u.Content), zap.Error(err))
 		}
 	}
 }
@@ -257,16 +251,16 @@ func nws(c *nwsclient) {
 func pushStats(c *nwsclient) {
 	stats, err := getPlayersStats()
 	if err != nil {
-		c.Ctx.Error("failed getting stats", zap.Error(err))
+		c.Log.Error("failed getting stats", zap.Error(err))
 		return
 	}
 
 	statsObj, err := json.Marshal(stats)
 	if err != nil {
-		c.Ctx.Error("failed sending message (stats) to websocket connection")
+		c.Log.Error("failed sending message (stats) to websocket connection")
 		return
 	}
 
 	updateDist.PushStats(c, statsObj)
-	c.Ctx.Debug("sending stats package to nwsclient")
+	c.Log.Debug("sending stats package to nwsclient")
 }

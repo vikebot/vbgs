@@ -15,7 +15,7 @@ type nwsclient struct {
 	Ws       *websocket.Conn
 	Queue    *queue.Queue
 	SyncRoot sync.Mutex
-	Ctx      *zap.Logger
+	Log      *zap.Logger
 }
 
 func (c *nwsclient) Write(buf []byte) error {
