@@ -28,7 +28,7 @@ type dist struct {
 
 // NewDist initializes a new notification Distributor and all it's child
 // ClientDistributors.
-func NewDist(allUserIDs []int, stop chan struct{}, log *zap.Logger) *dist {
+func NewDist(allUserIDs []int, stop chan struct{}, log *zap.Logger) Distributor {
 	// create distributor
 	d := &dist{
 		allUserIDs: allUserIDs,

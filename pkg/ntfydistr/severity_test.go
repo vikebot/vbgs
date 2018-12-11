@@ -2,8 +2,9 @@ package ntfydistr
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSeverity_String(t *testing.T) {
@@ -43,19 +44,19 @@ func TestSeverity_MarshalText(t *testing.T) {
 		{"int 0", 0, []byte("default"), false},
 		{"invalid -2", -2, nil, true},
 		{"invalid -1", -1, nil, true},
-		{"invalid 4", 4,  nil, true},
+		{"invalid 4", 4, nil, true},
 		{"invalid 5000", 5000, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.s.MarshalText()
-			if !tt.wantErr {
-				assert.Nil(t, err)
-			} else {
+			if tt.wantErr {
 				assert.NotNil(t, err)
+				return
 			}
 
 			assert.Equal(t, tt.want, got)
+			assert.Nil(t, err)
 		})
 	}
 }

@@ -17,24 +17,30 @@ const (
 
 // String returns a lower-case ASCII representation of the severity.
 func (s Severity) String() string {
+	str, _ := s.string()
+	return str
+}
+
+func (s Severity) string() (string, error) {
 	switch s {
 	case SeverityDefault:
-		return "default"
+		return "default", nil
 	case SeveritySuccess:
-		return "success"
+		return "success", nil
 	case SeverityWarning:
-		return "warning"
+		return "warning", nil
 	case SeverityError:
-		return "error"
+		return "error", nil
 	default:
-		return fmt.Sprintf("severity(%d)", s)
+		return fmt.Sprintf("severity(%d)", s), errors.New("ntfydistr: invalid severity")
 	}
 }
 
 // MarshalText marshals the Severity to text. Note that the text representation
 // drops the -Severity prefix (see example).
 func (s Severity) MarshalText() ([]byte, error) {
-	return []byte(s.String()), nil
+	str, err := s.string()
+	return []byte(str), err
 }
 
 // UnmarshalText unmarshals text to a Severity. Like MarshalText, UnmarshalText
