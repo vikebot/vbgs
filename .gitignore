@@ -35,3 +35,6 @@ vb_localhost_debugging_history.log
 
 # Build files
 vbgs
+
+# Debug files
+debug
