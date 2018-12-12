@@ -2,6 +2,7 @@ package ntfydistr
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -186,7 +187,7 @@ func (c *client) Push(notificationType string, notification interface{}, log *za
 
 	// construct basic packet for sending something into the frontend
 	packet := &event{
-		Type:  notificationType,
+		Type:  strings.ToLower(notificationType),
 		Obj:   notification,
 		Unixn: time.Now().UTC().UnixNano(),
 	}
