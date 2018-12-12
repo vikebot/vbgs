@@ -10,6 +10,10 @@ import "go.uber.org/zap"
 // cancelled and not called again.
 type SubscriberWriteFunc func(notf []byte) (disconnected bool, err error)
 
+// SubscriberInitFunc is a callbacked used during initializing a new
+// Subscriber. It is called with a dummy client which collects all notifcations
+// without sending them in the background. The intention of this method is to
+// send informations only needed by the newly connected subscriber.
 type SubscriberInitFunc func(c Client)
 
 // Subscriber represents a single entity that wants to receive notifications
