@@ -131,7 +131,7 @@ func nws(c *nwsclient) {
 	}
 
 	go func() {
-		time.Sleep(1 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 
 		// send user info
 		// updateDist.PushTypeUserinfo(c)
@@ -169,6 +169,23 @@ func nws(c *nwsclient) {
 			c.Log)
 
 		c.Log.Debug("sending init package to nwsclient")
+
+		if config.Network.WS.Flags.Debug {
+			dist.GetClient(c.UserID).Push("flag", struct {
+				Name  string `json:"name"`
+				State bool   `json:"state"`
+			}{
+				"debug",
+				true,
+			}, c.Log)
+			c.Log.Debug("sending debug flag to nwsclient")
+		}
+
+		if config.Network.WS.Flags.Stats {
+			// start goroutinge because pushStats can block the
+			// init packet if it's taken very long
+			go pushStats(c)
+		}
 	}()
 
 	// subscribe websocket connection for all notifications to this user and
@@ -185,24 +202,6 @@ func nws(c *nwsclient) {
 
 		return
 	}, c.Log)
-
-	if config.Network.WS.Flags.Debug {
-
-		dist.GetClient(c.UserID).Push("flag", struct {
-			Name  string `json:"name"`
-			State bool   `json:"state"`
-		}{
-			"debug",
-			true,
-		}, c.Log)
-		c.Log.Debug("sending debug flag to nwsclient")
-	}
-
-	if config.Network.WS.Flags.Stats {
-		// start goroutinge because pushStats can block the
-		// init packet if it's taken very long
-		go pushStats(c)
-	}
 }
 
 func pushStats(c *nwsclient) {
@@ -213,7 +212,7 @@ func pushStats(c *nwsclient) {
 	}
 
 	dist.GetClient(c.UserID).Push("stats", struct {
-		Stats playersStats
+		Stats playersStats `json:"stats"`
 	}{
 		stats,
 	}, c.Log)
