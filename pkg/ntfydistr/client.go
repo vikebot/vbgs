@@ -50,7 +50,7 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 			return
 		case <-tick.C:
 			// local buffer for notifications
-			var notfs []SerializedNotificationBuffer
+			var notfs [][]byte
 
 			// anonymous function to ensure qSync unlock even in panics
 			func() {
@@ -59,7 +59,7 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 
 				// create slice with length of the queue and deque all
 				// notifications
-				notfs = make([]SerializedNotificationBuffer, c.q.Length())
+				notfs = make([][]byte, c.q.Length())
 				for i := 0; i < len(notfs); i++ {
 					notfs[i] = c.q.Remove().([]byte)
 				}
@@ -124,9 +124,9 @@ func (c *client) Sub(w SubscriberWriteFunc, log *zap.Logger) {
 }
 
 // Push takes any notificationType and data to construct the final
-// SerializedNotificationBuffer. Therefore the notification interface must be
+// []byte. Therefore the notification interface must be
 // JSON serializable. Push doesn't send anything over the wire. All constructed
-// SerializedNotificationBuffer are queued in an internal system and will
+// []byte are queued in an internal system and will
 // eventually get sent in the next update tick (typically every 20ms). The
 // method is safe for concurrent use.
 func (c *client) Push(notificationType string, notification interface{}, log *zap.Logger) {

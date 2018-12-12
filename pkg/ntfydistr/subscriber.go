@@ -8,12 +8,12 @@ import "go.uber.org/zap"
 // indicates whether or not the returned error is due to a disconnect from
 // a remote party. If disconnected is true the current subscription will be
 // cancelled and not called again.
-type SubscriberWriteFunc func(notf SerializedNotificationBuffer) (disconnected bool, err error)
+type SubscriberWriteFunc func(notf []byte) (disconnected bool, err error)
 
 // Subscriber represents a single entity that wants to receive notifications
 // for a specific Client.
 type Subscriber interface {
-	Send(notfs []SerializedNotificationBuffer) (disconnected bool)
+	Send(notfs [][]byte) (disconnected bool)
 }
 
 type subscriber struct {
@@ -30,10 +30,10 @@ func newSubscriber(w SubscriberWriteFunc, stop chan struct{}, log *zap.Logger) *
 	}
 }
 
-// Send sends all passed SerializedNotificationBuffer notifications and sends
+// Send sends all passed []byte notifications and sends
 // them to the client using the subscribers SubscriberWriteFunc. Send returns
 // whether or not the subscriber has disconnected.
-func (s *subscriber) Send(notfs []SerializedNotificationBuffer) (disconnected bool) {
+func (s *subscriber) Send(notfs [][]byte) (disconnected bool) {
 	// send all notifications to the subscriber
 	s.log.Info("sending notifications", zap.Int("amount", len(notfs)))
 	for _, nBuf := range notfs {
