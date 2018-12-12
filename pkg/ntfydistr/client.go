@@ -15,7 +15,7 @@ import (
 // receivers for the user's events.
 type Client interface {
 	UserID() int
-	Sub(w SubscriberWriteFunc, log *zap.Logger)
+	Sub(w SubscriberWriteFunc, init SubscriberInitFunc, log *zap.Logger)
 	Push(notificationType string, notification interface{}, log *zap.Logger)
 	PushChat(msg string, sev Severity, log *zap.Logger)
 	PushChatPrefixed(prefix, msg string, sev Severity, log *zap.Logger)
@@ -39,6 +39,13 @@ func newClient(userID int) *client {
 	}
 }
 
+func (c *client) addSub(cr *subscriber, log *zap.Logger) {
+	// Add subscriber to subs list
+	c.subsSync.Lock()
+	c.subs = append(c.subs, cr)
+	c.subsSync.Unlock()
+}
+
 func (c *client) run(stop chan struct{}, log *zap.Logger) {
 	// create ticker for update interval
 	tick := time.NewTicker(20 * time.Millisecond)
@@ -49,65 +56,69 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 			log.Info("received stop. exiting notification update loop")
 			return
 		case <-tick.C:
-			// local buffer for notifications
-			var notfs []*event
-
-			// anonymous function to ensure qSync unlock even in panics
-			func() {
-				c.qSync.Lock()
-				defer c.qSync.Unlock()
-
-				// create slice with length of the queue and deque all
-				// notifications
-				notfs = make([]*event, c.q.Length())
-				for i := 0; i < len(notfs); i++ {
-					notfs[i] = c.q.Remove().(*event)
-				}
-			}()
-
-			// no updates for client -> wait for next tick
-			if len(notfs) == 0 {
-				continue
-			}
-
-			// marshal notifications slice
-			buf, err := json.Marshal(notfs)
-			if err != nil {
-				log.Error("unable to marshal notification", zap.Error(err))
-				continue
-			}
-
-			// anonymous function to ensure receiversSync unlock even in panics
-			func() {
-				c.subsSync.Lock()
-				defer c.subsSync.Unlock()
-
-				disconnSubs := []int{}
-
-				// send client notifications to all subscribers
-				for i, s := range c.subs {
-					disconnected := s.Send(buf, len(notfs))
-					if !disconnected {
-						continue
-					}
-
-					disconnSubs = append(disconnSubs, i)
-
-					// close channel for specific receiver
-					close(s.stop)
-				}
-
-				// start at the end of disconnSubs to delete them in a save way
-				for i := len(disconnSubs) - 1; i >= 0; i-- {
-					// subscriber has disconnected -> remove him from the subscriber
-					// list at index i
-					c.subs[i] = c.subs[len(c.subs)-1]
-					c.subs[len(c.subs)-1] = nil
-					c.subs = c.subs[:len(c.subs)-1]
-				}
-			}()
+			c.dequeueAndSend(log)
 		}
 	}
+}
+
+func (c *client) dequeueAndSend(log *zap.Logger) {
+	// local buffer for notifications
+	var notfs []*event
+
+	// anonymous function to ensure qSync unlock even in panics
+	func() {
+		c.qSync.Lock()
+		defer c.qSync.Unlock()
+
+		// create slice with length of the queue and deque all
+		// notifications
+		notfs = make([]*event, c.q.Length())
+		for i := 0; i < len(notfs); i++ {
+			notfs[i] = c.q.Remove().(*event)
+		}
+	}()
+
+	// no updates for client -> wait for next tick
+	if len(notfs) == 0 {
+		return
+	}
+
+	// marshal notifications slice
+	buf, err := json.Marshal(notfs)
+	if err != nil {
+		log.Error("unable to marshal notification", zap.Error(err))
+		return
+	}
+
+	// anonymous function to ensure receiversSync unlock even in panics
+	func() {
+		c.subsSync.Lock()
+		defer c.subsSync.Unlock()
+
+		disconnSubs := []int{}
+
+		// send client notifications to all subscribers
+		for i, s := range c.subs {
+			disconnected := s.Send(buf, len(notfs))
+			if !disconnected {
+				return
+			}
+
+			disconnSubs = append(disconnSubs, i)
+
+			// close channel for specific receiver
+			close(s.stop)
+		}
+
+		// start at the end of disconnSubs to delete them in a save way
+		for i := len(disconnSubs) - 1; i >= 0; i-- {
+			// subscriber has disconnected -> remove him from the subscriber
+			// list at index i
+			c.subs[i] = c.subs[len(c.subs)-1]
+			c.subs[len(c.subs)-1] = nil
+			c.subs = c.subs[:len(c.subs)-1]
+		}
+	}()
 }
 
 // UserID returns the user id of the user this client represents.
@@ -120,7 +131,7 @@ func (c *client) UserID() int {
 // SubscriberWriteFunc returns an error and the disconnected return-value
 // indicates that this error was caused by a disconnect of the remote party.
 // Notifications are queued and send in regular intervals.
-func (c *client) Sub(w SubscriberWriteFunc, log *zap.Logger) {
+func (c *client) Sub(w SubscriberWriteFunc, init SubscriberInitFunc, log *zap.Logger) {
 	// Allocate receiver
 	cr := &subscriber{
 		w:    w,
@@ -128,19 +139,34 @@ func (c *client) Sub(w SubscriberWriteFunc, log *zap.Logger) {
 		log:  log,
 	}
 
-	// Add receiver to receivers list
-	c.subsSync.Lock()
-	c.subs = append(c.subs, cr)
-	c.subsSync.Unlock()
+	if init != nil {
+		// create dummy client for init of subscriber (so the package caller has
+		// the same interface for sending updates during the init as later
+		dummy := newClient(c.userID)
 
-	// Block till this receiver stops
+		// call init callback with dummy. The subscriber can push everything he
+		// wants into the dummy's internal queue-buffer. It won't be dequeued,
+		// because noone ever called `run` on the dummy Client.
+		init(dummy)
+
+		// in order to send the collected events back to the "real" subscriber
+		// we subscribe him to the dummy's event notifications and perform a single
+		// dequeueAndSend round
+		dummy.addSub(cr, log)
+		dummy.dequeueAndSend(log)
+
+		// check if the subscriber already left. if so don't add him to the real
+		// Client's live subscriber
+		if len(dummy.subs) == 0 {
+			return
+		}
+	}
+
+	// add subscriber to the real client's live subscription list
+	c.addSub(cr, log)
+
+	// Block till this subscription stops
 	<-cr.stop
-}
-
-type event struct {
-	Type  string      `json:"type"`
-	Obj   interface{} `json:"obj"`
-	Unixn int64       `json:"unixn"`
 }
 
 // Push takes any notificationType and data to construct the final

@@ -10,6 +10,8 @@ import "go.uber.org/zap"
 // cancelled and not called again.
 type SubscriberWriteFunc func(notf []byte) (disconnected bool, err error)
 
+type SubscriberInitFunc func(c Client)
+
 // Subscriber represents a single entity that wants to receive notifications
 // for a specific Client.
 type Subscriber interface {
