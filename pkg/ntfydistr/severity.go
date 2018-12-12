@@ -6,12 +6,20 @@ import (
 	"fmt"
 )
 
+// Severity is the severity level used for a specific chat message. Depending
+// on the client's implementation this resulsts in a prefix or special colors.
 type Severity int
 
 const (
+	// SeverityDefault should be used for all chat messages that don't fit into
+	// one of the other Severity levels.
 	SeverityDefault Severity = iota
+	// SeveritySuccess should be used to indicate the success of something.
 	SeveritySuccess
+	// SeverityWarning should be used to indicate that something didn't went as
+	// expected, but the failure could be handled gracefully.
 	SeverityWarning
+	// SeverityError should be used to indicate the error of something.
 	SeverityError
 )
 
