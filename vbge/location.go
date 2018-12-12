@@ -61,3 +61,17 @@ func (l *Location) RelativeFrom(pl *Location) *Location {
 	}
 	return &nl
 }
+
+// ToARLocation converts a Location to a ARLocation with isAbs = faalse
+func (l *Location) ToARLocation() *ARLocation {
+	return &ARLocation{
+		IsAbs:    false,
+		Location: *l,
+	}
+}
+
+// ARLocation is a type to define a location as absolut or relative
+type ARLocation struct {
+	Location
+	IsAbs bool `json:"isabs"`
+}

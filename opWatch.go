@@ -15,7 +15,7 @@ type watchResponse struct {
 func opWatch(c *ntcpclient, packet watchPacket) {
 	c.Player.Rl.Watch.Take()
 
-	matrix, ng, err := c.Player.Watch()
+	matrix, _, err := c.Player.Watch()
 	if err != nil {
 		c.RespondFmt(err.Error())
 		return
@@ -24,5 +24,4 @@ func opWatch(c *ntcpclient, packet watchPacket) {
 	c.RespondObj(&watchResponse{
 		HealthMatrix: matrix,
 	})
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"watch"}`)), notifyChannelGroup, ng, c.Log)
 }

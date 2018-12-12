@@ -30,29 +30,27 @@ func newSubscriber(w SubscriberWriteFunc, stop chan struct{}, log *zap.Logger) *
 	}
 }
 
-// Send sends all passed []byte notifications and sends
-// them to the client using the subscribers SubscriberWriteFunc. Send returns
-// whether or not the subscriber has disconnected.
-func (s *subscriber) Send(notfs [][]byte) (disconnected bool) {
+// Send sends the passed []byte notification and sends it to the client using
+// the subscribers SubscriberWriteFunc. Send returns whether or not the
+// subscriber has disconnected.
+func (s *subscriber) Send(buffer []byte, amount int) (disconnected bool) {
 	// send all notifications to the subscriber
-	s.log.Info("sending notifications", zap.Int("amount", len(notfs)))
-	for _, nBuf := range notfs {
-		// call SubscriberWriteFunc callback
-		disconnected, err := s.w(nBuf)
-		if err == nil {
-			// no error -> continue with next notification
-			continue
-		}
+	s.log.Info("sending notifications", zap.Int("amount", amount), zap.Int("buffer_len", len(buffer)))
 
-		// see if the error is a disconnect error
-		if disconnected {
-			s.log.Info("remote client has forcely closed connection")
-			return true
-		}
-
-		// error unknown
-		s.log.Error("unable to send marshaled notification", zap.Error(err))
+	// call SubscriberWriteFunc callback
+	disconnected, err := s.w(buffer)
+	if err == nil {
+		// no error -> return
+		return false
 	}
 
+	// see if the error is a disconnect error
+	if disconnected {
+		s.log.Info("remote client has forcely closed connection")
+		return true
+	}
+
+	// error unknown
+	s.log.Error("unable to send marshaled notification", zap.Error(err))
 	return false
 }

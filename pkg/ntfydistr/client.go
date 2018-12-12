@@ -50,7 +50,7 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 			return
 		case <-tick.C:
 			// local buffer for notifications
-			var notfs [][]byte
+			var notfs []*event
 
 			// anonymous function to ensure qSync unlock even in panics
 			func() {
@@ -59,9 +59,9 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 
 				// create slice with length of the queue and deque all
 				// notifications
-				notfs = make([][]byte, c.q.Length())
+				notfs = make([]*event, c.q.Length())
 				for i := 0; i < len(notfs); i++ {
-					notfs[i] = c.q.Remove().([]byte)
+					notfs[i] = c.q.Remove().(*event)
 				}
 			}()
 
@@ -70,26 +70,40 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 				continue
 			}
 
+			// marshal notifications slice
+			buf, err := json.Marshal(notfs)
+			if err != nil {
+				log.Error("unable to marshal notification", zap.Error(err))
+				continue
+			}
+
 			// anonymous function to ensure receiversSync unlock even in panics
 			func() {
 				c.subsSync.Lock()
 				defer c.subsSync.Unlock()
 
+				disconnSubs := []int{}
+
 				// send client notifications to all subscribers
 				for i, s := range c.subs {
-					disconnected := s.Send(notfs)
+					disconnected := s.Send(buf, len(notfs))
 					if !disconnected {
 						continue
 					}
 
+					disconnSubs = append(disconnSubs, i)
+
+					// close channel for specific receiver
+					close(s.stop)
+				}
+
+				// start at the end of disconnSubs to delete them in a save way
+				for i := len(disconnSubs) - 1; i >= 0; i-- {
 					// subscriber has disconnected -> remove him from the subscriber
 					// list at index i
 					c.subs[i] = c.subs[len(c.subs)-1]
 					c.subs[len(c.subs)-1] = nil
 					c.subs = c.subs[:len(c.subs)-1]
-
-					// close channel for specific receiver
-					close(s.stop)
 				}
 			}()
 		}
@@ -123,6 +137,12 @@ func (c *client) Sub(w SubscriberWriteFunc, log *zap.Logger) {
 	<-cr.stop
 }
 
+type event struct {
+	Type  string      `json:"type"`
+	Obj   interface{} `json:"obj"`
+	Unixn int64       `json:"unixn"`
+}
+
 // Push takes any notificationType and data to construct the final
 // []byte. Therefore the notification interface must be
 // JSON serializable. Push doesn't send anything over the wire. All constructed
@@ -130,29 +150,30 @@ func (c *client) Sub(w SubscriberWriteFunc, log *zap.Logger) {
 // eventually get sent in the next update tick (typically every 20ms). The
 // method is safe for concurrent use.
 func (c *client) Push(notificationType string, notification interface{}, log *zap.Logger) {
+	if c == nil {
+		log.Warn("ntfydistr.Client: client is nil")
+		return
+	}
+
 	c.qSync.Lock()
 	defer c.qSync.Unlock()
 
 	// construct basic packet for sending something into the frontend
-	packet := struct {
-		Type  string      `json:"type"`
-		Obj   interface{} `json:"obj"`
-		Unixn int64       `json:"unixn"`
-	}{
+	packet := &event{
 		Type:  notificationType,
 		Obj:   notification,
 		Unixn: time.Now().UTC().UnixNano(),
 	}
 
 	// marshal interface to byte slice
-	buf, err := json.Marshal(packet)
+	_, err := json.Marshal(packet)
 	if err != nil {
 		log.Error("unable to marshal notification", zap.Error(err))
 		return
 	}
 
 	// queue for pushing to client
-	c.q.Add(buf)
+	c.q.Add(packet)
 }
 
 // PushChat makes it convient to send the message with it's severity level and

@@ -25,10 +25,3 @@ func (c *nwsclient) Write(buf []byte) error {
 func (c *nwsclient) WriteStr(str string) error {
 	return c.Write([]byte(str))
 }
-
-func (c *nwsclient) Notify(u update) {
-	c.SyncRoot.Lock()
-	defer c.SyncRoot.Unlock()
-
-	c.Queue.Add(u)
-}

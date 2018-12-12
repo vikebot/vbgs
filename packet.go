@@ -69,6 +69,6 @@ func packetHandler(c *ntcpclient, data []byte) {
 		return
 	}
 
-	// Dispatch the current event
+	// Dispatch the current notification
 	dispatch(c, data, packet)
 }

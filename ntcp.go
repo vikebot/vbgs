@@ -93,6 +93,6 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 
 func disconnect(c *ntcpclient) {
 	c.Log.Info("disconnected")
-	updateDist.PushTypeInfo(c, false)
+	dist.GetClient(c.UserID).PushInfo(false, c.IP, c.SDK, c.SDKLink, c.OS, c.Log)
 	ntcpRegistry.Delete(c)
 }

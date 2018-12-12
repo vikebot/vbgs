@@ -1,12 +1,9 @@
 package main
 
 import (
-	"encoding/json"
-	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
-	"go.uber.org/zap"
 )
 
 type attackObj struct {
@@ -27,11 +24,25 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 	health, ng, relPos, err := c.Player.Attack(
 		// func onHit
 		func(e *vbge.Player, health int, ng vbge.NotifyGroup) {
-			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"health","value":`+strconv.Itoa(health)+`}`)), notifyChannelGroup, ng, c.Log)
+			dist.PushGroup("game", ng.UserIDs(), struct {
+				GRID  string `json:"grid"`
+				Type  string `json:"type"`
+				Value int    `json:"health"`
+			}{
+				e.GRenderID,
+				"health",
+				health,
+			}, c.Log)
 		},
 		// func beforeRespawn
 		func(e *vbge.Player, ng vbge.NotifyGroup) {
-			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"death"}`)), notifyChannelGroup, ng, c.Log)
+			dist.PushGroup("game", ng.UserIDs(), struct {
+				GRID string `json:"grid"`
+				Type string `json:"type"`
+			}{
+				e.GRenderID,
+				"death",
+			}, c.Log)
 		},
 		// func afterRespawn
 		func(e *vbge.Player, ng vbge.NotifyGroup) {
@@ -48,26 +59,32 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 				if ng[i].UserID != e.UserID {
 					playerResp.Location = *l
 
-					// marshal response
-					pr, err := json.Marshal(playerResp)
-					if err != nil {
-						c.Log.Error("unable to marshal vbge.PlayerResp", zap.Error(err))
-						return
-					}
-
-					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"spawn","playerinfo":`+string(pr)+`}`)), notifyChannelPrivate, nil, c.Log)
+					dist.GetClient(ng[i].UserID).Push("game", struct {
+						GRID       string          `json:"grid"`
+						Type       string          `json:"type"`
+						PlayerInfo vbge.PlayerResp `json:"playerinfo"`
+					}{
+						e.GRenderID,
+						"spawn",
+						playerResp,
+					}, c.Log)
 				} else {
 					playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, e.UserID, battle, false)
 					if err != nil {
 						return
 					}
 
-					pme, err := json.Marshal(playerMapentity)
-					if err != nil {
-						return
-					}
-
-					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelPrivate, nil, c.Log)
+					dist.GetClient(ng[i].UserID).Push("game", struct {
+						GRID            string                  `json:"grid"`
+						Type            string                  `json:"type"`
+						Loc             *vbge.ARLocation        `json:"loc"`
+						PlayerMapEntity *vbge.ViewableMapentity `json:"playermapentity"`
+					}{
+						e.GRenderID,
+						"selfspawn",
+						l.ToARLocation(),
+						playerMapentity,
+					}, c.Log)
 				}
 			}
 		},
@@ -83,13 +100,11 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 				})
 			}
 
-			statsObj, err := json.Marshal(ps)
-			if err != nil {
-				c.Log.Error("unable to marshal playerStats", zap.Error(err))
-				return
-			}
-
-			updateDist.Push(nil, newUpdate("stats", statsObj), notifyChannelGroup, ng, c.Log)
+			dist.PushGroup("game", ng.UserIDs(), struct {
+				Stats []playerStats
+			}{
+				ps,
+			}, c.Log)
 		})
 	if err != nil {
 		c.Respond(err.Error())
@@ -102,8 +117,14 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 	})
 
 	for i := range ng {
-		updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+
-			`","type":"attack","loc":{"isabs":false,"x":`+strconv.Itoa(relPos[i].X)+`,"y":`+strconv.Itoa(relPos[i].Y)+`}}`)),
-			notifyChannelPrivate, nil, c.Log)
+		dist.GetClient(ng[i].UserID).Push("game", struct {
+			GRID string           `json:"grid"`
+			Type string           `json:"type"`
+			Loc  *vbge.ARLocation `json:"loc"`
+		}{
+			c.Player.GRenderID,
+			"attack",
+			relPos[i].ToARLocation(),
+		}, c.Log)
 	}
 }

@@ -1,17 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/eapache/queue"
 	"github.com/gorilla/websocket"
 	"github.com/vikebot/vbcore"
 	"github.com/vikebot/vbdb"
-	"github.com/vikebot/vbgs/pkg/ntfydistr"
 	"github.com/vikebot/vbgs/vbge"
 	"go.uber.org/zap"
 )
@@ -133,9 +130,50 @@ func nws(c *nwsclient) {
 		return
 	}
 
+	go func() {
+		time.Sleep(1 * time.Second)
+
+		// send user info
+		// updateDist.PushTypeUserinfo(c)
+
+		var player = battle.Players[c.UserID]
+
+		viewableMapsize := vbge.Location{
+			X: vbge.RenderWidth,
+			Y: vbge.RenderHeight,
+		}
+
+		playerMapentity, err := vbge.GetViewableMapentity(viewableMapsize.X, viewableMapsize.Y, c.UserID, battle, true)
+		if err != nil {
+			c.Log.Error("failed getting mapentity", zap.Error(err))
+			return
+		}
+
+		dist.GetClient(c.UserID).Push("initial",
+			struct {
+				TotalMapsize    vbge.Location        `json:"totalmapsize"`
+				ViewableMapsize vbge.Location        `json:"viewablemapsize"`
+				MaxHealth       int                  `json:"maxhealth"`
+				PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
+				Startplayer     string               `json:"startplayer"`
+			}{
+				TotalMapsize: vbge.Location{
+					X: vbge.MapWidth,
+					Y: vbge.MapHeight,
+				},
+				ViewableMapsize: viewableMapsize,
+				MaxHealth:       vbge.MaxHealth,
+				Startplayer:     player.GRenderID,
+				PlayerMapentity: playerMapentity.Matrix,
+			},
+			c.Log)
+
+		c.Log.Debug("sending init package to nwsclient")
+	}()
+
 	// subscribe websocket connection for all notifications to this user and
 	// send them as long as err isn't a disconnect from the remote websocket
-	dist.GetClient(c.UserID).Sub(func(notf ntfydistr.SerializedNotificationBuffer) (disconnected bool, err error) {
+	dist.GetClient(c.UserID).Sub(func(notf []byte) (disconnected bool, err error) {
 		err = c.Write(notf)
 		if err == nil {
 			return
@@ -148,103 +186,22 @@ func nws(c *nwsclient) {
 		return
 	}, c.Log)
 
-	c.Queue = queue.New()
-
 	if config.Network.WS.Flags.Debug {
-		updateDist.PushTypeFlag(c, "debug", true)
+
+		dist.GetClient(c.UserID).Push("flag", struct {
+			Name  string `json:"name"`
+			State bool   `json:"state"`
+		}{
+			"debug",
+			true,
+		}, c.Log)
 		c.Log.Debug("sending debug flag to nwsclient")
 	}
-
-	// send user info
-	updateDist.PushTypeUserinfo(c)
-
-	// initialGame is a struct for the first message
-	// in an ws connection to init the game in
-	// vbwatch
-	type initialGame struct {
-		TotalMapsize    vbge.Location        `json:"totalmapsize"`
-		ViewableMapsize vbge.Location        `json:"viewablemapsize"`
-		MaxHealth       int                  `json:"maxhealth"`
-		PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
-		Startplayer     string               `json:"startplayer"`
-	}
-
-	var player = battle.Players[c.UserID]
-
-	viewableMapsize := vbge.Location{
-		X: vbge.RenderWidth,
-		Y: vbge.RenderHeight,
-	}
-
-	playerMapentity, err := vbge.GetViewableMapentity(viewableMapsize.X, viewableMapsize.Y, c.UserID, battle, true)
-	if err != nil {
-		c.Log.Error("failed getting mapentity", zap.Error(err))
-		return
-	}
-
-	init := &initialGame{
-		TotalMapsize: vbge.Location{
-			X: vbge.MapWidth,
-			Y: vbge.MapHeight,
-		},
-		ViewableMapsize: viewableMapsize,
-		MaxHealth:       vbge.MaxHealth,
-		Startplayer:     player.GRenderID,
-		PlayerMapentity: playerMapentity.Matrix,
-	}
-
-	initObj, err := json.Marshal(init)
-	if err != nil {
-		c.Log.Error("failed sending message (init) to websocket connection", zap.Error(err))
-		return
-	}
-
-	updateDist.PushInit(c, initObj)
-	c.Log.Debug("sending init package to nwsclient")
 
 	if config.Network.WS.Flags.Stats {
 		// start goroutinge because pushStats can block the
 		// init packet if it's taken very long
 		go pushStats(c)
-	}
-
-	for {
-		time.Sleep(time.Millisecond * 100)
-
-		var updates []update
-		func() {
-			c.SyncRoot.Lock()
-			defer c.SyncRoot.Unlock()
-
-			updates = make([]update, c.Queue.Length())
-			for i := 0; i < len(updates); i++ {
-				updates[i] = c.Queue.Remove().(update)
-			}
-		}()
-
-		if len(updates) == 0 {
-			continue
-		}
-
-		c.Log.Debug("sending ws-updates", zap.Int("amount", len(updates)))
-		for _, u := range updates {
-			err = c.Write(u.Content)
-			if err == nil {
-				continue
-			}
-
-			if websocket.IsUnexpectedCloseError(err) {
-				c.Log.Info("remote nws client forcely closed connection")
-				return
-			}
-
-			if _, ok := err.(*net.OpError); ok {
-				c.Log.Info("error while writing to ws")
-				return
-			}
-
-			c.Log.Warn("unknown error during sending nws update", zap.ByteString("content", u.Content), zap.Error(err))
-		}
 	}
 }
 
@@ -255,12 +212,11 @@ func pushStats(c *nwsclient) {
 		return
 	}
 
-	statsObj, err := json.Marshal(stats)
-	if err != nil {
-		c.Log.Error("failed sending message (stats) to websocket connection")
-		return
-	}
+	dist.GetClient(c.UserID).Push("stats", struct {
+		Stats playersStats
+	}{
+		stats,
+	}, c.Log)
 
-	updateDist.PushStats(c, statsObj)
 	c.Log.Debug("sending stats package to nwsclient")
 }

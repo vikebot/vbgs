@@ -46,7 +46,7 @@ func dispatch(c *ntcpclient, data []byte, packet typePacket) {
 		c.Player = battle.Players[c.UserID]
 
 		c.RespondNil()
-		updateDist.PushTypeInfo(c, true)
+		dist.GetClient(c.UserID).PushInfo(true, c.IP, c.SDK, c.SDKLink, c.OS, c.Log)
 		return
 	case "rotate":
 		var rotate rotatePacket

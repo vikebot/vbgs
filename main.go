@@ -10,7 +10,6 @@ import (
 
 	"github.com/vikebot/vbgs/pkg/ntfydistr"
 
-	"github.com/eapache/queue"
 	"github.com/vikebot/vbcore"
 	"github.com/vikebot/vbdb"
 	"github.com/vikebot/vbgs/vbge"
@@ -24,7 +23,6 @@ var (
 
 	// battle is the game (mapentity with players)
 	battle          *vbge.Battle
-	updateDist      *updateDistributor
 	envDisableCrypt bool
 	dist            ntfydistr.Distributor
 )
@@ -44,11 +42,6 @@ func gsInit() {
 		noice[0] = 1
 	}
 	rand.Seed(time.Now().UnixNano() / int64(noice[0]))
-
-	// Init notification distributation network
-	updateDist = &updateDistributor{
-		History: queue.New(),
-	}
 
 	log.Info("init database connections")
 	vbdbConfig := &vbdb.Config{
@@ -116,12 +109,6 @@ func main() {
 	// Start the network services
 	ntcpInit(startChan, shutdownChan)
 	nwsInit(startChan, shutdownChan)
-
-	// Start the log writter
-	err := updateDist.InitHistoryWorker(startChan, shutdownChan)
-	if err != nil {
-		log.Fatal("unable to init history log writter. aborting ...", zap.Error(err))
-	}
 
 	// Sleep till start
 	startTime := time.Now().UTC().Add(time.Second * 2)

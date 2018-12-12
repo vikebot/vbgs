@@ -34,7 +34,7 @@ func opScout(c *ntcpclient, packet scoutPacket) {
 		return
 	}
 
-	counter, ng, err := c.Player.Scout(distance)
+	counter, ng, relPos, err := c.Player.Scout(distance)
 	if err != nil {
 		c.Respond(err.Error())
 		return
@@ -44,5 +44,18 @@ func opScout(c *ntcpclient, packet scoutPacket) {
 		Counter: counter,
 	})
 
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"scout","distance":"`+strconv.Itoa(distance)+`"}`)), notifyChannelGroup, ng, c.Log)
+	for i := range ng {
+		dist.GetClient(ng[i].UserID).Push("game",
+			struct {
+				GRID     string           `json:"grid"`
+				Type     string           `json:"type"`
+				Distance int              `json:"distance"`
+				Loc      *vbge.ARLocation `json:"loc"`
+			}{
+				c.Player.GRenderID,
+				"scout",
+				distance,
+				relPos[i].ToARLocation(),
+			}, c.Log)
+	}
 }
