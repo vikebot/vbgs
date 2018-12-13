@@ -67,6 +67,10 @@ func NewDistributor(allUserIDs []int, stop chan struct{}, log *zap.Logger) Distr
 	return d
 }
 
+// Close first waits for the signal of the stop channel provided during
+// NewDistributor. Next Close waits for all client update runners to finish.
+// As soon as Close returns all started goroutines from ntfydistr should be
+// stopped and all remaining messages sent to the subscribers.
 func (d *dist) Close() {
 	<-d.stop
 	d.wg.Wait()
