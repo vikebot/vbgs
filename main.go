@@ -18,6 +18,13 @@ import (
 )
 
 var (
+	// Version contains if available the git tag of this build. In all other
+	// situations Version will be just the unique git commit hash. The variable
+	// is set during compilation
+	Version string
+)
+
+var (
 	log    *zap.Logger
 	config *gameserverConfig
 
