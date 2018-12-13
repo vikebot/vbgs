@@ -41,7 +41,7 @@ func newSubscriber(w SubscriberWriteFunc, stop chan struct{}, log *zap.Logger) *
 // subscriber has disconnected.
 func (s *subscriber) Send(buffer []byte, amount int) (disconnected bool) {
 	// send all notifications to the subscriber
-	s.log.Info("sending notifications", zap.Int("amount", amount), zap.Int("buffer_len", len(buffer)))
+	s.log.Debug("sending notifications", zap.Int("amount", amount), zap.Int("buffer_len", len(buffer)))
 
 	// call SubscriberWriteFunc callback
 	disconnected, err := s.w(buffer)

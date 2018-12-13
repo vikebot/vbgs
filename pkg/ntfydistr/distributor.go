@@ -56,7 +56,11 @@ func NewDistributor(allUserIDs []int, stop chan struct{}, log *zap.Logger) Distr
 		go func(userID int) {
 			defer d.wg.Done()
 
-			c.run(stop, log.Named("ntfydistr.Client."+strconv.Itoa(userID)))
+			// construct a named child logger
+			cLog := log.Named("ntfydistr.Client" + strconv.Itoa(userID))
+			cLog = cLog.With(zap.Int("user_id", userID))
+
+			c.run(stop, cLog)
 		}(userID)
 	}
 

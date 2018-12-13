@@ -48,6 +48,8 @@ func (c *client) addSub(cr *subscriber, log *zap.Logger) {
 }
 
 func (c *client) run(stop chan struct{}, log *zap.Logger) {
+	log.Debug("starting client notification runner")
+
 	// create ticker for update interval
 	tick := time.NewTicker(20 * time.Millisecond)
 	for {
