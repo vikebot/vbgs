@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	logSimple "log"
 	"math/rand"
 	"os"
 	"time"
 
-	"github.com/eapache/queue"
+	"github.com/vikebot/vbgs/pkg/ntfydistr"
+
 	"github.com/vikebot/vbcore"
 	"github.com/vikebot/vbdb"
 	"github.com/vikebot/vbgs/vbge"
@@ -17,13 +18,13 @@ import (
 )
 
 var (
-	logctx *zap.Logger
+	log    *zap.Logger
 	config *gameserverConfig
 
 	// battle is the game (mapentity with players)
 	battle          *vbge.Battle
-	updateDist      *updateDistributor
 	envDisableCrypt bool
+	dist            ntfydistr.Distributor
 )
 
 func gsInit() {
@@ -32,21 +33,104 @@ func gsInit() {
 		envDisableCrypt = true
 	}
 
-	log.Println("seeding global PRNG-source")
+	log.Info("seeding global PRNG-source")
 	noice, err := vbcore.CryptoGenBytes(1)
 	if err != nil {
-		log.Fatalf("failed getting noice value for seeding global PRNG-source: %s\n", err.Error())
+		log.Fatal("failed getting noice value for seeding global PRNG-source", zap.Error(err))
 	}
 	if noice[0] == 0 {
 		noice[0] = 1
 	}
 	rand.Seed(time.Now().UnixNano() / int64(noice[0]))
 
-	// Init notification distributation network
-	updateDist = &updateDistributor{
-		History: queue.New(),
+	log.Info("init database connections")
+	vbdbConfig := &vbdb.Config{
+		DbAddr: vbcore.NewEndpointAddr(config.Database.MariaDB.Host),
+		DbUser: config.Database.MariaDB.User,
+		DbPass: config.Database.MariaDB.Password,
+		DbName: config.Database.MariaDB.Name,
+	}
+	err = vbdb.Init(vbdbConfig, log)
+	if err != nil {
+		log.Fatal("init failed", zap.Error(err))
 	}
 
+	registryInit()
+}
+
+func battleInit(joinedPlayers []int) {
+	battle = &vbge.Battle{
+		// MapSize
+		Map:     vbge.NewMapEntity(vbge.MapHeight, vbge.MapWidth),
+		Players: make(map[int]*vbge.Player),
+	}
+	// MapSize
+	vbge.SetMapDimensions(vbge.MapHeight, vbge.MapWidth)
+
+	for _, j := range joinedPlayers {
+		p, err := vbge.NewPlayerWithSpawn(j, battle.Map)
+		if err != nil {
+			log.Fatal("failed to init vbge/(*Player) struct", zap.Error(err))
+		}
+		battle.Players[j] = p
+	}
+
+}
+
+func main() {
+	conf := flag.String("config", "", "path to config file")
+	flag.Parse()
+
+	if conf == nil || *conf == "" {
+		logSimple.Fatal("no gameserver config defined")
+	}
+	config = loadConfig(*conf)
+
+	// init zap logging
+	initLog()
+
+	// Prepare basic stuff of the server and init our battle (fetch map)
+	gsInit()
+
+	// getAllPlayers
+	joinedPlayers := getJoinedPlayers()
+
+	// init the battle
+	battleInit(joinedPlayers)
+
+	// init the distributor
+	distributorInit(joinedPlayers)
+	defer dist.Close()
+
+	// Start and shutdown channels
+	startChan := make(chan bool)
+	shutdownChan := make(chan bool)
+
+	// Start the network services
+	ntcpInit(startChan, shutdownChan)
+	nwsInit(startChan, shutdownChan)
+
+	// Sleep till start
+	startTime := time.Now().UTC().Add(time.Second * 2)
+	sleepDuration := startTime.Sub(time.Now().UTC())
+	log.Info("prepared services. sleeping till starttime",
+		zap.Time("starttime", startTime),
+		zap.Duration("sleeping", sleepDuration))
+	time.Sleep(sleepDuration)
+
+	// Activate services that listen on starting channel signal
+	startChan <- true
+	startChan <- true
+	startChan <- true
+
+	// Shutdown services in on hour
+	log.Info("started services. sleeping till shutdown",
+		zap.Time("shutdowntim", time.Now().UTC().Add(time.Hour*1)))
+	time.Sleep(time.Hour * 1) // Time of a game
+	shutdownChan <- true
+}
+
+func initLog() {
 	// Logging server
 	enablerFunc := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
 		return lvl >= config.Log.Level
@@ -67,92 +151,20 @@ func gsInit() {
 		os.Exit(-1)
 	}
 	core := zapcore.NewTee(zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), enablerFunc))
-	logctx = zap.New(core)
-
-	log.Println("init database connections")
-	vbdbConfig := &vbdb.Config{
-		DbAddr: vbcore.NewEndpointAddr(config.Database.MariaDB.Host),
-		DbUser: config.Database.MariaDB.User,
-		DbPass: config.Database.MariaDB.Password,
-		DbName: config.Database.MariaDB.Name,
-	}
-	err = vbdb.Init(vbdbConfig, logctx)
-	if err != nil {
-		logctx.Fatal("init failed", zap.Error(err))
-	}
-
-	registryInit()
+	log = zap.New(core)
 }
 
-func battleInit() {
-	battle = &vbge.Battle{
-		// MapSize
-		Map:     vbge.NewMapEntity(vbge.MapHeight, vbge.MapWidth),
-		Players: make(map[int]*vbge.Player),
-	}
-	// MapSize
-	vbge.SetMapDimensions(vbge.MapHeight, vbge.MapWidth)
-
-	joined, success := vbdb.JoinedUsersCtx(config.Battle.RoundID, logctx)
+func getJoinedPlayers() (joinedPlayers []int) {
+	joined, success := vbdb.JoinedUsersCtx(config.Battle.RoundID, log)
 	if !success {
-		logctx.Fatal("unable to load users for this round", zap.Int("round_id", config.Battle.RoundID))
+		log.Fatal("unable to load users for this round", zap.Int("round_id", config.Battle.RoundID))
 	}
 
-	for _, j := range joined {
-		p, err := vbge.NewPlayerWithSpawn(j, battle.Map)
-		if err != nil {
-			logctx.Fatal("failed to init vbge/(*Player) struct", zap.Error(err))
-		}
-		battle.Players[j] = p
-	}
+	return joined
 }
 
-func main() {
-	log.Println("defining flags")
-	conf := flag.String("config", "", "")
-
-	log.Println("parsing flags")
-	flag.Parse()
-
-	if conf == nil || *conf == "" {
-		log.Fatal("no gameserver config defined")
-	}
-	config = loadConfig(*conf)
-
-	// Prepare basic stuff of the server and init our battle (fetch map)
-	gsInit()
-	battleInit()
-
-	// Start and shutdown channels
-	startChan := make(chan bool)
-	shutdownChan := make(chan bool)
-
-	// Start the network services
-	ntcpInit(startChan, shutdownChan)
-	nwsInit(startChan, shutdownChan)
-
-	// Start the log writter
-	err := updateDist.InitHistoryWorker(startChan, shutdownChan)
-	if err != nil {
-		logctx.Fatal("unable to init history log writter. aborting ...", zap.Error(err))
-	}
-
-	// Sleep till start
-	startTime := time.Now().UTC().Add(time.Second * 2)
-	sleepDuration := startTime.Sub(time.Now().UTC())
-	logctx.Info("prepared services. sleeping till starttime",
-		zap.Time("starttime", startTime),
-		zap.Duration("sleeping", sleepDuration))
-	time.Sleep(sleepDuration)
-
-	// Activate services that listen on starting channel signal
-	startChan <- true
-	startChan <- true
-	startChan <- true
-
-	// Shutdown services in on hour
-	logctx.Info("started services. sleeping till shutdown",
-		zap.Time("shutdowntim", time.Now().UTC().Add(time.Hour*1)))
-	time.Sleep(time.Hour * 1) // Time of a game
-	shutdownChan <- true
+func distributorInit(joinedPlayers []int) {
+	// TODO: make global stop chan
+	stop := make(chan struct{})
+	dist = ntfydistr.NewDistributor(joinedPlayers, stop, log.Named("Distributor"))
 }

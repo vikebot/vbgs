@@ -1,7 +1,5 @@
 package main
 
-import "strconv"
-
 type healthObj struct {
 }
 
@@ -17,11 +15,9 @@ type healthResponse struct {
 func opHealth(c *ntcpclient, packtet healthPacket) {
 	c.Player.Rl.Health.Take()
 
-	health, ng := c.Player.GetHealth()
+	health := c.Player.GetHealth()
 
 	c.RespondObj(&healthResponse{
 		Health: health,
 	})
-
-	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"health","value":"`+strconv.Itoa(health)+`"}`)), notifyChannelGroup, ng, c.LogCtx)
 }

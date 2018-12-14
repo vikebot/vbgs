@@ -18,5 +18,11 @@ func opDefend(c *ntcpclient, packet defendPacket) {
 	}
 	c.RespondNil()
 
-	updateDist.Push(c.Player, newUpdate("defend", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"defend"}`)), notifyChannelGroup, ng, c.LogCtx)
+	dist.PushGroup("game", ng.UserIDs(), struct {
+		GRID string `json:"grid"`
+		Type string `json:"type"`
+	}{
+		c.Player.GRenderID,
+		"defend",
+	}, c.Log)
 }
