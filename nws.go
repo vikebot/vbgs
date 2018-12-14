@@ -207,6 +207,8 @@ func nwsSub(c *nwsclient) {
 
 		// Send the current state fo the stats
 		if config.Network.WS.Flags.Stats {
+			c.Log.Debug("sending stats to nwsclient")
+
 			stats, err := getPlayersStats()
 			if err != nil {
 				c.Log.Error("failed getting stats", zap.Error(err))
@@ -218,8 +220,6 @@ func nwsSub(c *nwsclient) {
 			}{
 				stats,
 			}, c.Log)
-
-			c.Log.Debug("sent stats to nwsclient")
 		}
 	}, c.Log)
 }
