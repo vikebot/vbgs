@@ -68,43 +68,36 @@ func TestSeverity_MarshalTextNil(t *testing.T) {
 }
 
 func TestSeverity_UnmarshalText(t *testing.T) {
-	type args struct {
-		text []byte
-	}
 	tests := []struct {
 		name    string
-		s       *Severity
-		args    args
+		s       Severity
+		args    []byte
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"default", SeverityDefault, []byte("default"), false},
+		{"success", SeveritySuccess, []byte("success"), false},
+		{"warning", SeverityWarning, []byte("warning"), false},
+		{"error", SeverityError, []byte("error"), false},
+		{"default", SeverityDefault, []byte(""), false},
+		{"invalid", 0, []byte("something other than constants"), true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.s.UnmarshalText(tt.args.text); (err != nil) != tt.wantErr {
-				t.Errorf("Severity.UnmarshalText() error = %v, wantErr %v", err, tt.wantErr)
+			var s Severity
+			err := s.UnmarshalText(tt.args)
+			if tt.wantErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, tt.s, s)
 			}
 		})
 	}
 }
 
-func TestSeverity_unmarshalText(t *testing.T) {
-	type args struct {
-		text []byte
-	}
-	tests := []struct {
-		name string
-		s    *Severity
-		args args
-		want bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.unmarshalText(tt.args.text); got != tt.want {
-				t.Errorf("Severity.unmarshalText() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func TestSeverity_UnmarshalTextNil(t *testing.T) {
+	var s *Severity
+	err := s.UnmarshalText([]byte{})
+	assert.NotNil(t, err)
+	assert.Equal(t, "can't unmarshal a nil *Severity", err.Error())
 }
