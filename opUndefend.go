@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 type undefendObj struct {
 }
 
@@ -9,9 +11,10 @@ type undefendPacket struct {
 }
 
 func opUndefend(c *ntcpclient, packtet undefendPacket) {
-	c.Player.Rl.Defend.Take()
+	// c.Player.Rl.Defend.Take()
+	time.Sleep(1000 * time.Millisecond)
 
-	ng, err := c.Player.Defend()
+	ng, err := c.Player.Undefend()
 	if err != nil {
 		c.Respond(err.Error())
 		return

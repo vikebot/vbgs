@@ -428,6 +428,7 @@ func (p *Player) Spawn() error {
 			p.Location = &loc
 			p.Health = NewDefaultHealth()
 			p.WatchDir = dirNorth
+			p.IsDefending = false
 			return nil
 		}
 	}
