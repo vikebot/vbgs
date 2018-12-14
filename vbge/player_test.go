@@ -225,7 +225,7 @@ func TestPlayerScout(t *testing.T) {
 				Rl:       NewOpLimitations(),
 			}
 
-			playerCount, _, _ := p.Scout(c.distance)
+			playerCount, _, _, _ := p.Scout(c.distance)
 
 			if playerCount != c.wantedPlayerCount {
 				t.Fail()

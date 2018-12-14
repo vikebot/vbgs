@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 
-	"github.com/eapache/queue"
+	"github.com/vikebot/vbgs/pkg/ntfydistr"
+
 	"github.com/gorilla/websocket"
 	"github.com/vikebot/vbcore"
 	"github.com/vikebot/vbdb"
@@ -37,7 +36,7 @@ func nwsInit(start chan bool, shutdown chan bool) {
 
 	go func() {
 		// Wait for start signal
-		logctx.Info("nws ready. waiting for start signal")
+		log.Info("nws ready. waiting for start signal")
 		<-start
 
 		go nwsRun(srv)
@@ -46,7 +45,7 @@ func nwsInit(start chan bool, shutdown chan bool) {
 		<-shutdown
 		err := srv.Shutdown(nil)
 		if err != nil {
-			logctx.Warn("nws shutdown failed", zap.Error(err))
+			log.Warn("nws shutdown failed", zap.Error(err))
 		}
 	}()
 }
@@ -54,7 +53,7 @@ func nwsInit(start chan bool, shutdown chan bool) {
 func nwsRun(srv *http.Server) {
 	var srvErr error
 
-	logctx.Info("accepting clients on nws listener")
+	log.Info("accepting clients on nws listener")
 	if config.Network.WS.TLS.Active {
 		srvErr = srv.ListenAndServeTLS(config.Network.WS.TLS.Cert, config.Network.WS.TLS.PKey)
 	} else {
@@ -62,7 +61,7 @@ func nwsRun(srv *http.Server) {
 	}
 
 	if srvErr != nil {
-		logctx.Fatal("nws listen failed", zap.Error(srvErr))
+		log.Fatal("nws listen failed", zap.Error(srvErr))
 	}
 }
 
@@ -70,187 +69,157 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 	wsrqid := vbcore.FastRandomString(32)
 	c := &nwsclient{
 		WSRqID: wsrqid,
-		Ctx:    logctx.With(zap.String("wsrqid", wsrqid)),
+		Log:    log.With(zap.String("wsrqid", wsrqid)),
 	}
 
-	c.Ctx.Info("connected", zap.String("ip", r.RemoteAddr))
+	c.Log.Info("connected", zap.String("ip", r.RemoteAddr))
 
 	ws, err := nwsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		c.Ctx.Error("failed to upgrade http connection", zap.Error(err))
+		c.Log.Error("failed to upgrade http connection", zap.Error(err))
 		return
 	}
 	defer func() {
-		c.Ctx.Info("closed", zap.String("ip", r.RemoteAddr))
+		c.Log.Info("closed", zap.String("ip", r.RemoteAddr))
 		err = ws.Close()
 		if err != nil {
-			c.Ctx.Error("error during closing websocket", zap.Error(err))
+			c.Log.Error("error during closing websocket", zap.Error(err))
 		}
 	}()
 
 	c.Ws = ws
 
-	nws(c)
+	// authenticate the websocket connection
+	err = nwsAuthAndValidate(c)
+	if err != nil {
+		// see if the error happend due to a closed websocket
+		if _, ok := err.(*net.OpError); ok || websocket.IsUnexpectedCloseError(err) {
+			return
+		}
+
+		// no closing error -> log it
+		c.Log.Warn("unable to send message to client", zap.Error(err))
+	}
 }
 
-func nws(c *nwsclient) {
+func nwsAuthAndValidate(c *nwsclient) error {
+	// get opening message (should be the watchtoken) from the client
 	mt, watchtoken, err := c.Ws.ReadMessage()
 	if err != nil {
-		c.Ctx.Warn("failed reading message from websocket", zap.Error(err))
-		return
+		c.Log.Warn("failed reading message from websocket", zap.Error(err))
+		return nil
 	}
 	c.Mt = mt
 
-	v, exists, success := vbdb.RoundentryFromWatchtokenCtx(string(watchtoken), c.Ctx)
+	watchtokenStr := string(watchtoken) // TODO: check for legitimacy of watchtoken
+
+	// check if the watchtoken exists inside the database
+	v, exists, success := vbdb.RoundentryFromWatchtokenCtx(watchtokenStr, c.Log)
 	if !success {
-		err = c.WriteStr("Internal server error")
-		if err != nil {
-			c.Ctx.Warn("unable to send internal server error message", zap.Error(err))
-		}
-		return
+		return c.WriteStr("Internal server error")
 	}
 	if !exists {
-		c.Ctx.Warn("client provided unknown watchtoken", zap.String("watchtoken", string(watchtoken)))
-		err = c.WriteStr("Unknown watchtoken")
-		if err != nil {
-			c.Ctx.Warn("unable to send unknown watchtoken error message", zap.Error(err))
-		}
-		return
+		c.Log.Warn("client provided unknown watchtoken", zap.String("watchtoken", string(watchtoken)))
+		return c.WriteStr("Unknown watchtoken")
 	}
-	c.UserID = v.UserID
-	c.Ctx.Info("authenticated", zap.Int("user_id", v.UserID))
 
+	// user is authenticated correctly
+	c.UserID = v.UserID
+	c.Log.Info("authenticated", zap.Int("user_id", v.UserID))
+
+	// check if the user's watchtoken was intended for this round
 	if config.Battle.RoundID != v.RoundID {
-		c.Ctx.Warn("valid watchtoken references invalid round",
+		c.Log.Warn("valid watchtoken references invalid round",
 			zap.Int("config_round_id", config.Battle.RoundID),
 			zap.Int("watchtoken_round_id", v.RoundID))
 
-		err = c.WriteStr("Internal server error")
-		if err != nil {
-			c.Ctx.Warn("unable to send internal server error message", zap.Error(err))
-		}
-		return
+		return c.WriteStr("Unexpected watchtoken. Maybe your round is already over?")
 	}
 
-	c.Queue = queue.New()
-	nwsRegistry.Put(c)
-
-	defer func() {
-		nwsRegistry.Delete(c)
-		c.Ctx.Debug("disconnected. removed from registry")
-	}()
-
-	if config.Network.WS.Flags.Debug {
-		updateDist.PushTypeFlag(c, "debug", true)
-		c.Ctx.Debug("sending debug flag to nwsclient")
-	}
-
-	// send user info
-	updateDist.PushTypeUserinfo(c)
-
-	// initialGame is a struct for the first message
-	// in an ws connection to init the game in
-	// vbwatch
-	type initialGame struct {
-		TotalMapsize    vbge.Location        `json:"totalmapsize"`
-		ViewableMapsize vbge.Location        `json:"viewablemapsize"`
-		MaxHealth       int                  `json:"maxhealth"`
-		PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
-		Startplayer     string               `json:"startplayer"`
-	}
-
-	var player = battle.Players[c.UserID]
-
-	viewableMapsize := vbge.Location{
-		X: vbge.RenderWidth,
-		Y: vbge.RenderHeight,
-	}
-
-	playerMapentity, err := vbge.GetViewableMapentity(viewableMapsize.X, viewableMapsize.Y, c.UserID, battle, true)
-	if err != nil {
-		c.Ctx.Error("failed getting mapentity", zap.Error(err))
-		return
-	}
-
-	init := &initialGame{
-		TotalMapsize: vbge.Location{
-			X: vbge.MapWidth,
-			Y: vbge.MapHeight,
-		},
-		ViewableMapsize: viewableMapsize,
-		MaxHealth:       vbge.MaxHealth,
-		Startplayer:     player.GRenderID,
-		PlayerMapentity: playerMapentity.Matrix,
-	}
-
-	initObj, err := json.Marshal(init)
-	if err != nil {
-		c.Ctx.Error("failed sending message (init) to websocket connection", zap.Error(err))
-		return
-	}
-
-	updateDist.PushInit(c, initObj)
-	c.Ctx.Debug("sending init package to nwsclient")
-
-	if config.Network.WS.Flags.Stats {
-		// start goroutinge because pushStats can block the
-		// init packet if it's taken very long
-		go pushStats(c)
-	}
-
-	for {
-		time.Sleep(time.Millisecond * 100)
-
-		var updates []update
-		func() {
-			c.SyncRoot.Lock()
-			defer c.SyncRoot.Unlock()
-
-			updates = make([]update, c.Queue.Length())
-			for i := 0; i < len(updates); i++ {
-				updates[i] = c.Queue.Remove().(update)
-			}
-		}()
-
-		if len(updates) == 0 {
-			continue
-		}
-
-		c.Ctx.Debug("sending ws-updates", zap.Int("amount", len(updates)))
-		for _, u := range updates {
-			err = c.Write(u.Content)
-			if err == nil {
-				continue
-			}
-
-			if websocket.IsUnexpectedCloseError(err) {
-				c.Ctx.Info("remote nws client forcely closed connection")
-				return
-			}
-
-			if _, ok := err.(*net.OpError); ok {
-				c.Ctx.Info("error while writing to ws")
-				return
-			}
-
-			c.Ctx.Warn("unknown error during sending nws update", zap.ByteString("content", u.Content), zap.Error(err))
-		}
-	}
+	// subscribe authenticated client
+	nwsSub(c)
+	return nil
 }
 
-func pushStats(c *nwsclient) {
-	stats, err := getPlayersStats()
-	if err != nil {
-		c.Ctx.Error("failed getting stats", zap.Error(err))
-		return
-	}
+func nwsSub(c *nwsclient) {
+	// subscribe websocket connection for all notifications to this user and
+	// send them as long as err isn't a disconnect from the remote websocket.
+	// Also send all initial informations needed by this specific subscriber,
+	// as map properties, etc.
+	dist.GetClient(c.UserID).Sub(func(notf []byte) (disconnected bool, err error) {
+		// write provided notification to the websocket connection
+		err = c.Write(notf)
+		if err == nil {
+			return
+		}
 
-	statsObj, err := json.Marshal(stats)
-	if err != nil {
-		c.Ctx.Error("failed sending message (stats) to websocket connection")
-		return
-	}
+		// check if the remote party disconnected
+		if _, ok := err.(*net.OpError); ok || websocket.IsUnexpectedCloseError(err) {
+			return true, err
+		}
 
-	updateDist.PushStats(c, statsObj)
-	c.Ctx.Debug("sending stats package to nwsclient")
+		// unknown error -> just return it
+		return false, err
+	}, func(initClient ntfydistr.Client) {
+		// Start the initialization of the current subscriber
+		c.Log.Debug("initing nwsclient subscription for user")
+
+		// Construct necessary primitives
+		var player = battle.Players[initClient.UserID()]
+		viewableMapsize := vbge.Location{
+			X: vbge.RenderWidth,
+			Y: vbge.RenderHeight,
+		}
+		playerMapentity, err := vbge.GetViewableMapentity(viewableMapsize.X, viewableMapsize.Y, initClient.UserID(), battle, true)
+		if err != nil {
+			c.Log.Error("failed getting mapentity", zap.Error(err))
+			return
+		}
+
+		// Send the initial game information
+		c.Log.Debug("sending init package to nwsclient")
+		initClient.Push("initial", struct {
+			TotalMapsize    vbge.Location        `json:"totalmapsize"`
+			ViewableMapsize vbge.Location        `json:"viewablemapsize"`
+			MaxHealth       int                  `json:"maxhealth"`
+			PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
+			Startplayer     string               `json:"startplayer"`
+		}{
+			TotalMapsize: vbge.Location{
+				X: vbge.MapWidth,
+				Y: vbge.MapHeight,
+			},
+			ViewableMapsize: viewableMapsize,
+			MaxHealth:       vbge.MaxHealth,
+			Startplayer:     player.GRenderID,
+			PlayerMapentity: playerMapentity.Matrix,
+		}, c.Log)
+
+		// Set the client's debug flag
+		c.Log.Debug("sending debug flag to nwsclient", zap.Bool("debug", config.Network.WS.Flags.Debug))
+		initClient.Push("flag", struct {
+			Name  string `json:"name"`
+			State bool   `json:"state"`
+		}{
+			"debug",
+			config.Network.WS.Flags.Debug,
+		}, c.Log)
+
+		// Send the current state fo the stats
+		if config.Network.WS.Flags.Stats {
+			c.Log.Debug("sending stats to nwsclient")
+
+			stats, err := getPlayersStats()
+			if err != nil {
+				c.Log.Error("failed getting stats", zap.Error(err))
+				return
+			}
+
+			initClient.Push("stats", struct {
+				Stats playersStats `json:"stats"`
+			}{
+				stats,
+			}, c.Log)
+		}
+	}, c.Log)
 }

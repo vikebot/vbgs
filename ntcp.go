@@ -11,12 +11,12 @@ import (
 func ntcpInit(start chan bool, shutdown chan bool) {
 	listener, err := net.Listen("tcp", config.Network.TCP.Addr)
 	if err != nil {
-		logctx.Fatal("ntcp listen failed", zap.String("addr", config.Network.TCP.Addr), zap.Error(err))
+		log.Fatal("ntcp listen failed", zap.String("addr", config.Network.TCP.Addr), zap.Error(err))
 	}
 
 	go func() {
 		// Wait for start signal
-		logctx.Info("ntcp ready. waiting for start signal")
+		log.Info("ntcp ready. waiting for start signal")
 		<-start
 
 		go ntcpRun(listener)
@@ -25,25 +25,25 @@ func ntcpInit(start chan bool, shutdown chan bool) {
 		<-shutdown
 		err = listener.Close()
 		if err != nil {
-			logctx.Warn("ntcp close failed", zap.Error(err))
+			log.Warn("ntcp close failed", zap.Error(err))
 		}
 	}()
 }
 
 func ntcpRun(listener net.Listener) {
-	logctx.Info("accepting clients on ntcp listener")
+	log.Info("accepting clients on ntcp listener")
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			logctx.Warn("ntcp accept failed", zap.Error(err))
+			log.Warn("ntcp accept failed", zap.Error(err))
 			continue
 		}
 
 		go func(c net.Conn) {
 			defer c.Close()
 
-			ctx := logctx.With(zap.String("ip", c.RemoteAddr().String()))
+			ctx := log.With(zap.String("ip", c.RemoteAddr().String()))
 
 			defer func() {
 				recoverd := recover()
@@ -68,7 +68,7 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 	c := newNtcpclient(conn.RemoteAddr(), conn, ctx)
 	buf := bufio.NewReader(conn)
 
-	c.LogCtx.Info("connected")
+	c.Log.Info("connected")
 
 	for {
 		data, err := buf.ReadBytes('\n')
@@ -83,7 +83,7 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 				return
 			}
 
-			c.LogCtx.Warn("unknown error during ntcp read", zap.Error(err))
+			c.Log.Warn("unknown error during ntcp read", zap.Error(err))
 			return
 		}
 
@@ -92,7 +92,7 @@ func ntcp(conn net.Conn, ctx *zap.Logger) {
 }
 
 func disconnect(c *ntcpclient) {
-	c.LogCtx.Info("disconnected")
-	updateDist.PushTypeInfo(c, false)
+	c.Log.Info("disconnected")
+	dist.GetClient(c.UserID).PushInfo(false, c.IP, c.SDK, c.SDKLink, c.OS, c.Log)
 	ntcpRegistry.Delete(c)
 }

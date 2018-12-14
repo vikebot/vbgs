@@ -174,7 +174,7 @@ func (p *Player) Radar() (playerCount int, ng NotifyGroup, err error) {
 }
 
 // Scout implements https://sdk-wiki.vikebot.com/#scout
-func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, err error) {
+func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, relativePos []*Location, err error) {
 	pCount := 0
 
 	p.Map.SyncRoot.Lock()
@@ -223,7 +223,16 @@ func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, err error
 		}
 	}
 
-	return pCount, p.Map.PInRenderArea(*p.Location), nil
+	ng = p.Map.PInRenderArea(*p.Location)
+
+	// calculate relative positions (from the new position of the player) to all
+	// other players inside the notifygroup
+	relPos := make([]*Location, len(ng))
+	for i := range ng {
+		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	}
+
+	return pCount, ng, relPos, nil
 }
 
 // Environment implements https://sdk-wiki.vikebot.com/#environment
@@ -405,8 +414,8 @@ func (p *Player) Undefend() (ng NotifyGroup, err error) {
 }
 
 // GetHealth returns the health as an int value of a player
-func (p *Player) GetHealth() (health int, ng NotifyGroup) {
-	return p.Health.HealthSynced(), p.Map.PInRenderArea(*p.Location)
+func (p *Player) GetHealth() (health int) {
+	return p.Health.HealthSynced()
 }
 
 // Spawn places the player randomly on the map as long as the location doesn't
