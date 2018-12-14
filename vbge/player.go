@@ -324,7 +324,7 @@ type SpawnEvent func(p *Player, ng NotifyGroup)
 
 // StatsEvent is called when the stats of a player
 // has changed
-type StatsEvent func(p []Player, ng NotifyGroup)
+type StatsEvent func(p []Player)
 
 // Attack implements https://sdk-wiki.vikebot.com/#attack
 func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent, changedStats StatsEvent) (enemyHealth int, ng NotifyGroup, relativePos []*Location, err error) {
@@ -373,9 +373,7 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 		// the stats TODO: find out if neccessary
 		var players = []Player{*p, *enemy}
 		go func() {
-			// TODO: getTheNG in another way to improve performance
-			allNg := p.Map.PInMap()
-			changedStats(players, allNg)
+			changedStats(players)
 		}()
 
 		enemy.Health.Unlock()

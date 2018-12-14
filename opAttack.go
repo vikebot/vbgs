@@ -89,7 +89,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 			}
 		},
 		// func ChangedStats
-		func(p []vbge.Player, ng vbge.NotifyGroup) {
+		func(p []vbge.Player) {
 			var ps playersStats
 
 			for i := range p {
@@ -100,7 +100,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 				})
 			}
 
-			dist.PushGroup("game", ng.UserIDs(), struct {
+			dist.PushBroadcast("game", struct {
 				Stats []playerStats
 			}{
 				ps,
