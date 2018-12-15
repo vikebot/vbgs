@@ -86,7 +86,14 @@ func battleInit(joinedPlayers []int) {
 
 func main() {
 	conf := flag.String("config", "", "path to config file")
+	version := flag.Bool("version", false, "only display the version of vbgs")
 	flag.Parse()
+
+	// Only print version
+	if version != nil && *version {
+		fmt.Println("vikebot/vbgs@" + Version)
+		return
+	}
 
 	if conf == nil || *conf == "" {
 		logSimple.Fatal("no gameserver config defined")
@@ -95,6 +102,11 @@ func main() {
 
 	// init zap logging
 	initLog()
+
+	// print version
+	if len(Version) != 0 {
+		log.Info("running vbgs at version", zap.String("version", Version))
+	}
 
 	// Prepare basic stuff of the server and init our battle (fetch map)
 	gsInit()
@@ -152,6 +164,7 @@ func initLog() {
 		encoder = zapcore.NewConsoleEncoder(zapConfig.EncoderConfig)
 	case "production", "prod":
 		zapConfig := zap.NewProductionConfig()
+		zapConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 		encoder = zapcore.NewJSONEncoder(zapConfig.EncoderConfig)
 	default:
 		fmt.Println("config.log.config is of unknown type. only 'development', 'dev', 'production' and 'prod' are allowed")
@@ -173,5 +186,5 @@ func getJoinedPlayers() (joinedPlayers []int) {
 func distributorInit(joinedPlayers []int) {
 	// TODO: make global stop chan
 	stop := make(chan struct{})
-	dist = ntfydistr.NewDistributor(joinedPlayers, stop, log.Named("Distributor"))
+	dist = ntfydistr.NewDistributor(joinedPlayers, stop, log.Named("nftydistr.distributor"))
 }

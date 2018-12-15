@@ -7,26 +7,34 @@ services:
       - 2400
     ports:
       - "2400:2400"
+    volumes:
+      - ./vbgs/debug.json:/etc/vbgs/config.json
     networks:
       - vbgs-fluentd-network
     logging:
       driver: "fluentd"
       options:
         fluentd-address: localhost:24224
-        tag: {{.ID}}
+        tag: vbgs
+    depends_on:
+      - "fluentd"
+    command: ["-config", "/etc/vbgs/config.json"]
   
   fluentd:
     build: ./fluentd
     volumes:
-      - ./fluentd/conf:/fluented/etc
+      - ./fluentd/conf:/fluentd/etc
     networks:
+      - vbgs-fluentd-network
       - fluentd-elastic-network
     ports:
       - "24224:24224"
       - "24224:24224/udp"
+    depends_on:
+      - "elasticsearch"
 
   elasticsearch:
-    image: elasticsearch
+    image: elasticsearch:6.5.3
     expose:
       - 9200
     ports:
@@ -36,9 +44,13 @@ services:
       - elastic-kibana-network
 
   kibana:
-    image: kibana
+    image: kibana:6.5.3
     networks:
       - elastic-kibana-network
+    ports:
+      - "5601:5601"
+    depends_on:
+      - "elasticsearch"
 
 networks:
   vbgs-fluentd-network:
