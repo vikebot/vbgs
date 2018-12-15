@@ -38,10 +38,11 @@ func NewPlayerWithSpawn(userID int, m *MapEntity) (p *Player, err error) {
 	}
 
 	// Search random picture
+	/* #nosec G404 */
 	if rand.Int()%2 == 0 {
-		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png"
+		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png" /* #nosec G404 */
 	} else {
-		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png"
+		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png" /* #nosec G404 */
 	}
 
 	// Spawn the player
@@ -379,7 +380,10 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 		enemy.Health.Unlock()
 
 		beforeRespawn(enemy, beforeRespawnNG)
-		enemy.Respawn()
+		err = enemy.Respawn()
+		if err != nil {
+			return 0, ng, relPos, err
+		}
 		afterRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
 		afterRespawn(enemy, afterRespawnNG)
 
@@ -388,7 +392,7 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 		enemy.Health.Unlock()
 	}
 
-	return health, ng, relPos, err
+	return health, ng, relPos, nil
 }
 
 // Defend implements https://sdk-wiki.vikebot.com/#defend-and-undefend
@@ -422,6 +426,7 @@ func (p *Player) GetHealth() (health int) {
 func (p *Player) Spawn() error {
 	for i := 0; i < 100; i++ {
 		// Randomly generate a position inside the map
+		/* #nosec G404 */
 		loc := Location{
 			X: rand.Int() % MapWidth,
 			Y: rand.Int() % MapHeight,
