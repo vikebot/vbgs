@@ -38,10 +38,11 @@ func NewPlayerWithSpawn(userID int, m *MapEntity) (p *Player, err error) {
 	}
 
 	// Search random picture
+	/* #nosec G404 */
 	if rand.Int()%2 == 0 {
-		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png"
+		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png" /* #nosec G404 */
 	} else {
-		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png"
+		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png" /* #nosec G404 */
 	}
 
 	// Spawn the player
@@ -174,7 +175,7 @@ func (p *Player) Radar() (playerCount int, ng NotifyGroup, err error) {
 }
 
 // Scout implements https://sdk-wiki.vikebot.com/#scout
-func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, err error) {
+func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, relativePos []*Location, err error) {
 	pCount := 0
 
 	p.Map.SyncRoot.Lock()
@@ -223,7 +224,16 @@ func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, err error
 		}
 	}
 
-	return pCount, p.Map.PInRenderArea(*p.Location), nil
+	ng = p.Map.PInRenderArea(*p.Location)
+
+	// calculate relative positions (from the new position of the player) to all
+	// other players inside the notifygroup
+	relPos := make([]*Location, len(ng))
+	for i := range ng {
+		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	}
+
+	return pCount, ng, relPos, nil
 }
 
 // Environment implements https://sdk-wiki.vikebot.com/#environment
@@ -315,7 +325,7 @@ type SpawnEvent func(p *Player, ng NotifyGroup)
 
 // StatsEvent is called when the stats of a player
 // has changed
-type StatsEvent func(p []Player, ng NotifyGroup)
+type StatsEvent func(p []Player)
 
 // Attack implements https://sdk-wiki.vikebot.com/#attack
 func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent, changedStats StatsEvent) (enemyHealth int, ng NotifyGroup, relativePos []*Location, err error) {
@@ -364,15 +374,16 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 		// the stats TODO: find out if neccessary
 		var players = []Player{*p, *enemy}
 		go func() {
-			// TODO: getTheNG in another way to improve performance
-			allNg := p.Map.PInMap()
-			changedStats(players, allNg)
+			changedStats(players)
 		}()
 
 		enemy.Health.Unlock()
 
 		beforeRespawn(enemy, beforeRespawnNG)
-		enemy.Respawn()
+		err = enemy.Respawn()
+		if err != nil {
+			return 0, ng, relPos, err
+		}
 		afterRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
 		afterRespawn(enemy, afterRespawnNG)
 
@@ -381,7 +392,7 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 		enemy.Health.Unlock()
 	}
 
-	return health, ng, relPos, err
+	return health, ng, relPos, nil
 }
 
 // Defend implements https://sdk-wiki.vikebot.com/#defend-and-undefend
@@ -405,8 +416,8 @@ func (p *Player) Undefend() (ng NotifyGroup, err error) {
 }
 
 // GetHealth returns the health as an int value of a player
-func (p *Player) GetHealth() (health int, ng NotifyGroup) {
-	return p.Health.HealthSynced(), p.Map.PInRenderArea(*p.Location)
+func (p *Player) GetHealth() (health int) {
+	return p.Health.HealthSynced()
 }
 
 // Spawn places the player randomly on the map as long as the location doesn't
@@ -415,6 +426,7 @@ func (p *Player) GetHealth() (health int, ng NotifyGroup) {
 func (p *Player) Spawn() error {
 	for i := 0; i < 100; i++ {
 		// Randomly generate a position inside the map
+		/* #nosec G404 */
 		loc := Location{
 			X: rand.Int() % MapWidth,
 			Y: rand.Int() % MapHeight,
@@ -428,6 +440,7 @@ func (p *Player) Spawn() error {
 			p.Location = &loc
 			p.Health = NewDefaultHealth()
 			p.WatchDir = dirNorth
+			p.IsDefending = false
 			return nil
 		}
 	}

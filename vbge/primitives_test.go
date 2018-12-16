@@ -3,6 +3,7 @@ package vbge
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/vikebot/vbcore"
 )
 
@@ -106,6 +107,55 @@ func TestIsBlocktype(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsBlocktype(tt.blocktypeCandidate); got != tt.want {
 				t.Errorf("IsBlocktype() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetMapDimensions(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := []struct {
+		name          string
+		width         int
+		height        int
+		halfmapWidth  int
+		halfmapHeight int
+	}{
+		{"Test01: SetMapDimensions", 100, 100, 50, 50},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetMapDimensions(tt.width, tt.height)
+
+			assert.Equal(tt.width, MapWidth)
+			assert.Equal(tt.height, MapHeight)
+			assert.Equal(tt.halfmapHeight, HalfmapHeight)
+			assert.Equal(tt.halfmapWidth, HalfmapWidth)
+		})
+	}
+}
+
+func TestIsDistance(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := []struct {
+		name     string
+		distance int
+		wanted   bool
+	}{
+		{"Test01: valid distance", 10, true},
+		{"Test02: invalid distance, more than maxScoutLength", 500, false},
+		{"Test03: invalid distance, negative value", -1, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.wanted {
+				assert.True(IsDistance(tt.distance))
+			} else {
+				assert.False(IsDistance(tt.distance))
 			}
 		})
 	}
