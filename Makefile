@@ -41,7 +41,7 @@ mod-verify:
 	${GOMOD} verify
 mod-vendor:
 	${GOMOD} vendor
-test: test-sec
+test: mod test-sec
 	${GOTEST} -cover -covermode=atomic -race ./...
 build:
 	${GOBUILD} -o ${BINARY}
