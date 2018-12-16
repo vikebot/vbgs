@@ -20,25 +20,33 @@ func testMutexdLock(t *testing.T, m Mutexd) {
 	err := m.Lock(context.Background(), "MAP_X110_Y40")
 	assert.Nil(t, err)
 
-	var lastFinished int
+	chronology := make(chan int, 2)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
-		time.Sleep(1 * time.Second)
+		m.Lock(context.Background(), "MAP_X110_Y40")
+		chronology <- 0
 		m.Unlock(context.Background(), "MAP_X110_Y40")
-		lastFinished = 0
 		wg.Done()
 	}()
 	go func() {
-		m.Lock(context.Background(), "MAP_X110_Y40")
-		lastFinished = 1
+		time.Sleep(1 * time.Second)
+		m.Unlock(context.Background(), "MAP_X110_Y40")
+		chronology <- 1
 		wg.Done()
 	}()
 
 	wg.Wait()
-	assert.Equal(t, 1, lastFinished)
+	close(chronology)
+
+	var chronologyArr []int
+	for i := range chronology {
+		chronologyArr = append(chronologyArr, i)
+	}
+
+	assert.Equal(t, []int{1, 0}, chronologyArr)
 }
 
 func testMutexdRLock(t *testing.T, m Mutexd) {
@@ -47,23 +55,31 @@ func testMutexdRLock(t *testing.T, m Mutexd) {
 	err := m.RLock(context.Background(), "MAP_X110_Y40")
 	assert.Nil(t, err)
 
-	var lastFinished int
+	chronology := make(chan int, 2)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
-		time.Sleep(1 * time.Second)
+		m.RLock(context.Background(), "MAP_X110_Y40")
+		chronology <- 0
 		m.RUnlock(context.Background(), "MAP_X110_Y40")
-		lastFinished = 0
 		wg.Done()
 	}()
 	go func() {
-		m.RLock(context.Background(), "MAP_X110_Y40")
-		lastFinished = 1
+		time.Sleep(1 * time.Second)
+		m.RUnlock(context.Background(), "MAP_X110_Y40")
+		chronology <- 1
 		wg.Done()
 	}()
 
 	wg.Wait()
-	assert.Equal(t, 0, lastFinished)
+	close(chronology)
+
+	var chronologyArr []int
+	for i := range chronology {
+		chronologyArr = append(chronologyArr, i)
+	}
+
+	assert.Equal(t, []int{0, 1}, chronologyArr)
 }

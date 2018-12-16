@@ -8,6 +8,7 @@ import (
 // InMemManager implements Manager with in-memory sync.RWMutexes. Each token
 // has it's own RWMutex
 type InMemManager struct {
+	rw  sync.RWMutex
 	aqu map[string]*sync.RWMutex
 }
 
@@ -16,6 +17,38 @@ type InMemManager struct {
 func NewInMemManager() *InMemManager {
 	return &InMemManager{
 		aqu: make(map[string]*sync.RWMutex),
+	}
+}
+
+func (m *InMemManager) setTokenMutex(token string, mutex *sync.RWMutex) bool {
+	// Aquire lock for map writing
+	m.rw.Lock()
+
+	// check if lock was set in meantime
+	if _, ok := m.aqu[token]; ok {
+		// if so discard our allocated lock and try again
+		mutex.Unlock()
+		return false
+	}
+
+	// noone set a mutex for our token yet -> set it
+	m.aqu[token] = mutex
+	// release write lock for map
+	m.rw.Unlock()
+
+	return true
+}
+
+// AllocateMutexes allocates mutexes for all passed tokens. This reduces
+// mutex contention, because read-locks are cheap and share parallel
+// access.
+func (m *InMemManager) AllocateMutexes(tokens ...string) {
+	m.rw.Lock()
+	defer m.rw.Unlock()
+
+	for _, t := range tokens {
+		var mutex sync.RWMutex
+		m.aqu[t] = &mutex
 	}
 }
 
@@ -30,16 +63,25 @@ func (m *InMemManager) NewRequest() *Request {
 // rely on any dependencies or network calls, the passed context is never
 // used. You are safe to use `context.Background()`. Furthermore there is
 // no chance that an error is returned. The return value will always be nil.
-func (m *InMemManager) Lock(_ context.Context, token string) error {
-	if rw, ok := m.aqu[token]; ok {
+func (m *InMemManager) Lock(ctx context.Context, token string) error {
+	m.rw.RLock()
+	rw, ok := m.aqu[token]
+	m.rw.RUnlock()
+
+	if ok {
 		rw.Lock()
 		return nil
 	}
 
-	var rw sync.RWMutex
-	rw.Lock()
+	var mutex sync.RWMutex
+	mutex.Lock()
 
-	m.aqu[token] = &rw
+	if !m.setTokenMutex(token, &mutex) {
+		// set operation failed, because the token now exists. Recursivly call
+		// ourself again. Next time we should end in OK and try to aquire the
+		// correct mutex's lock.
+		return m.Lock(ctx, token)
+	}
 
 	return nil
 }
@@ -50,16 +92,25 @@ func (m *InMemManager) Lock(_ context.Context, token string) error {
 // rely on any dependencies or network calls, the passed context is never
 // used. You are safe to use `context.Background()`. Furthermore there is
 // no chance that an error is returned. The return value will always be nil.
-func (m *InMemManager) RLock(_ context.Context, token string) error {
-	if rw, ok := m.aqu[token]; ok {
+func (m *InMemManager) RLock(ctx context.Context, token string) error {
+	m.rw.RLock()
+	rw, ok := m.aqu[token]
+	m.rw.RUnlock()
+
+	if ok {
 		rw.RLock()
 		return nil
 	}
 
-	var rw sync.RWMutex
-	rw.RLock()
+	var mutex sync.RWMutex
+	mutex.RLock()
 
-	m.aqu[token] = &rw
+	if !m.setTokenMutex(token, &mutex) {
+		// set operation failed, because the token now exists. Recursivly call
+		// ourself again. Next time we should end in OK and try to aquire the
+		// correct mutex's lock.
+		return m.RLock(ctx, token)
+	}
 
 	return nil
 }
@@ -71,9 +122,12 @@ func (m *InMemManager) RLock(_ context.Context, token string) error {
 // used. You are safe to use `context.Background()`. Furthermore there is
 // no chance that an error is returned. The return value will always be nil.
 func (m *InMemManager) Unlock(_ context.Context, token string) error {
-	if rw, ok := m.aqu[token]; ok {
+	m.rw.RLock()
+	rw, ok := m.aqu[token]
+	m.rw.RUnlock()
+
+	if ok {
 		rw.Unlock()
-		delete(m.aqu, token)
 	}
 
 	return nil
@@ -86,9 +140,12 @@ func (m *InMemManager) Unlock(_ context.Context, token string) error {
 // used. You are safe to use `context.Background()`. Furthermore there is
 // no chance that an error is returned. The return value will always be nil.
 func (m *InMemManager) RUnlock(_ context.Context, token string) error {
-	if rw, ok := m.aqu[token]; ok {
+	m.rw.RLock()
+	rw, ok := m.aqu[token]
+	m.rw.RUnlock()
+
+	if ok {
 		rw.RUnlock()
-		delete(m.aqu, token)
 	}
 
 	return nil

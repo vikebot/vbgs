@@ -12,6 +12,7 @@ import (
 // as they provide more failure-resistance than the plain manager itself.
 type Manager interface {
 	Mutexd
+	AllocateMutexes(tokens ...string)
 	NewRequest() *Request
 }
 

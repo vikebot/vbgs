@@ -8,6 +8,31 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestManager_AllocateMutexes(t *testing.T) {
+	tests := []struct {
+		name     string
+		mode     Mode
+		hasToken func(m Manager, t string) bool
+	}{
+		{"inmem", ModeInMem, func(m Manager, t string) bool {
+			_, ok := m.(*InMemManager).aqu[t]
+			return ok
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := NewManager(tt.mode)
+			assert.Nil(t, err)
+
+			m.AllocateMutexes("X1", "X2", "X3")
+
+			assert.True(t, tt.hasToken(m, "X1"))
+			assert.True(t, tt.hasToken(m, "X2"))
+			assert.True(t, tt.hasToken(m, "X3"))
+		})
+	}
+}
+
 func TestNewManager(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -56,6 +81,8 @@ func (m *errTestManager) Unlock(ctx context.Context, token string) error {
 func (m *errTestManager) RUnlock(ctx context.Context, token string) error {
 	return errors.New("runlock")
 }
+
+func (m *errTestManager) AllocateMutexes(tokens ...string) {}
 
 func (m *errTestManager) NewRequest() *Request {
 	return NewRequest(m)
