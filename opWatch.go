@@ -15,11 +15,7 @@ type watchResponse struct {
 func opWatch(c *ntcpclient, packet watchPacket) {
 	c.Player.Rl.Watch.Take()
 
-	matrix, _, err := c.Player.Watch()
-	if err != nil {
-		c.RespondFmt(err.Error())
-		return
-	}
+	matrix, _ := c.Player.Watch()
 
 	c.RespondObj(&watchResponse{
 		HealthMatrix: matrix,
