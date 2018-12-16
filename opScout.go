@@ -23,6 +23,7 @@ type scoutResponse struct {
 func opScout(c *ntcpclient, packet scoutPacket) {
 	// c.Player.Rl.Scout.Take()
 	time.Sleep(500 * time.Millisecond)
+
 	if packet.Obj.Distance == nil {
 		c.Respond("Invalid packet. `obj.distance' missing")
 		return
@@ -34,18 +35,14 @@ func opScout(c *ntcpclient, packet scoutPacket) {
 		return
 	}
 
-	counter, ng, relPos, err := c.Player.Scout(distance)
-	if err != nil {
-		c.Respond(err.Error())
-		return
-	}
+	counter, ngl := c.Player.Scout(distance)
 
 	c.RespondObj(&scoutResponse{
 		Counter: counter,
 	})
 
-	for i := range ng {
-		dist.GetClient(ng[i].UserID).Push("game",
+	for _, entity := range ngl {
+		dist.GetClient(entity.Player.UserID).Push("game",
 			struct {
 				GRID     string           `json:"grid"`
 				Type     string           `json:"type"`
@@ -55,7 +52,7 @@ func opScout(c *ntcpclient, packet scoutPacket) {
 				c.Player.GRenderID,
 				"scout",
 				distance,
-				relPos[i].ToARLocation(),
+				entity.ARLoc,
 			}, c.Log)
 	}
 }
