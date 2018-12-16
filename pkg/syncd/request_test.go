@@ -75,37 +75,45 @@ func testRequestLockChronology(t *testing.T, r1, r2 *Request) {
 	assert.NotNil(t, r1)
 	assert.NotNil(t, r2)
 
-	chronology := []int{}
+	chronology := make(chan int, 4)
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(2)
 
 	go func() {
 		r1.Lock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 0)
+		chronology <- 0
+
+		time.Sleep(2 * time.Second)
+
+		r1.Unlock(context.Background(), "MAP_X110_Y40")
+		chronology <- 2
+
 		wg.Done()
 	}()
 	go func() {
 		time.Sleep(1 * time.Second)
+
 		r2.Lock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 1)
-		wg.Done()
-	}()
-	go func() {
+		chronology <- 1
+
 		time.Sleep(2 * time.Second)
-		r1.Unlock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 2)
-		wg.Done()
-	}()
-	go func() {
-		time.Sleep(3 * time.Second)
+
 		r2.Unlock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 3)
+		chronology <- 3
+
 		wg.Done()
 	}()
 
 	wg.Wait()
-	assert.Equal(t, []int{0, 2, 1, 3}, chronology)
+	close(chronology)
+
+	var chronologyArr []int
+	for i := range chronology {
+		chronologyArr = append(chronologyArr, i)
+	}
+
+	assert.Equal(t, []int{0, 2, 1, 3}, chronologyArr)
 }
 
 func TestRequest_RLockChronology(t *testing.T) {
@@ -120,37 +128,45 @@ func testRequestRLockChronology(t *testing.T, r1, r2 *Request) {
 	assert.NotNil(t, r1)
 	assert.NotNil(t, r2)
 
-	chronology := []int{}
+	chronology := make(chan int, 4)
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(2)
 
 	go func() {
 		r1.RLock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 0)
+		chronology <- 0
+
+		time.Sleep(2 * time.Second)
+
+		r1.RUnlock(context.Background(), "MAP_X110_Y40")
+		chronology <- 2
+
 		wg.Done()
 	}()
 	go func() {
 		time.Sleep(1 * time.Second)
+
 		r2.RLock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 1)
-		wg.Done()
-	}()
-	go func() {
+		chronology <- 1
+
 		time.Sleep(2 * time.Second)
-		r1.RUnlock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 2)
-		wg.Done()
-	}()
-	go func() {
-		time.Sleep(3 * time.Second)
+
 		r2.RUnlock(context.Background(), "MAP_X110_Y40")
-		chronology = append(chronology, 3)
+		chronology <- 3
+
 		wg.Done()
 	}()
 
 	wg.Wait()
-	assert.Equal(t, []int{0, 1, 2, 3}, chronology)
+	close(chronology)
+
+	var chronologyArr []int
+	for i := range chronology {
+		chronologyArr = append(chronologyArr, i)
+	}
+
+	assert.Equal(t, []int{0, 1, 2, 3}, chronologyArr)
 }
 
 func TestRequest_UnlockAll(t *testing.T) {
