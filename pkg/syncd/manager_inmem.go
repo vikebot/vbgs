@@ -11,7 +11,9 @@ type InMemManager struct {
 	aqu map[string]*sync.RWMutex
 }
 
-func newInMemManager() *InMemManager {
+// NewInMemManager intializues a new InMemManager which implements the Manager
+// interface.
+func NewInMemManager() *InMemManager {
 	return &InMemManager{
 		aqu: make(map[string]*sync.RWMutex),
 	}
@@ -19,7 +21,7 @@ func newInMemManager() *InMemManager {
 
 // NewRequest returns a new Request based on the InMemManager
 func (m *InMemManager) NewRequest() *Request {
-	return newRequest(m)
+	return NewRequest(m)
 }
 
 // Lock locks the write-lock for the token if not already locked.

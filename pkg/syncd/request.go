@@ -9,13 +9,13 @@ import (
 // always checked before calling the parent Manager, which enables features
 // like multiple Lock calls for the token, without getting errors.
 type Request struct {
-	Mutexd
 	m    Manager
 	aquR map[string]struct{}
 	aquW map[string]struct{}
 }
 
-func newRequest(m Manager) *Request {
+// NewRequest initializes a new Request based on the passed Manager instance.
+func NewRequest(m Manager) *Request {
 	return &Request{
 		m:    m,
 		aquR: make(map[string]struct{}),
