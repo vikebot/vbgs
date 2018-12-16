@@ -26,7 +26,7 @@ func testMutexdLock(t *testing.T, m Mutexd) {
 	wg.Add(2)
 
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		m.Unlock(context.Background(), "MAP_X110_Y40")
 		lastFinished = 0
 		wg.Done()
@@ -53,7 +53,7 @@ func testMutexdRLock(t *testing.T, m Mutexd) {
 	wg.Add(2)
 
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		m.RUnlock(context.Background(), "MAP_X110_Y40")
 		lastFinished = 0
 		wg.Done()
