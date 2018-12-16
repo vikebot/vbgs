@@ -58,7 +58,7 @@ func (m *errTestManager) RUnlock(ctx context.Context, token string) error {
 }
 
 func (m *errTestManager) NewRequest() *Request {
-	return newRequest(m)
+	return NewRequest(m)
 }
 
 func TestErrorManager(t *testing.T) {
