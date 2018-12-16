@@ -8,15 +8,15 @@ import (
 // InMemManager implements Manager with in-memory sync.RWMutexes. Each token
 // has it's own RWMutex
 type InMemManager struct {
-	rw  sync.RWMutex
-	aqu map[string]*sync.RWMutex
+	rw   sync.RWMutex
+	acqu map[string]*sync.RWMutex
 }
 
 // NewInMemManager intializues a new InMemManager which implements the Manager
 // interface.
 func NewInMemManager() *InMemManager {
 	return &InMemManager{
-		aqu: make(map[string]*sync.RWMutex),
+		acqu: make(map[string]*sync.RWMutex),
 	}
 }
 
@@ -25,14 +25,14 @@ func (m *InMemManager) setTokenMutex(token string, mutex *sync.RWMutex) bool {
 	m.rw.Lock()
 
 	// check if lock was set in meantime
-	if _, ok := m.aqu[token]; ok {
+	if _, ok := m.acqu[token]; ok {
 		// if so discard our allocated lock and try again
 		mutex.Unlock()
 		return false
 	}
 
 	// noone set a mutex for our token yet -> set it
-	m.aqu[token] = mutex
+	m.acqu[token] = mutex
 	// release write lock for map
 	m.rw.Unlock()
 
@@ -48,7 +48,7 @@ func (m *InMemManager) AllocateMutexes(tokens ...string) {
 
 	for _, t := range tokens {
 		var mutex sync.RWMutex
-		m.aqu[t] = &mutex
+		m.acqu[t] = &mutex
 	}
 }
 
@@ -65,7 +65,7 @@ func (m *InMemManager) NewRequest() *Request {
 // no chance that an error is returned. The return value will always be nil.
 func (m *InMemManager) Lock(ctx context.Context, token string) error {
 	m.rw.RLock()
-	rw, ok := m.aqu[token]
+	rw, ok := m.acqu[token]
 	m.rw.RUnlock()
 
 	if ok {
@@ -94,7 +94,7 @@ func (m *InMemManager) Lock(ctx context.Context, token string) error {
 // no chance that an error is returned. The return value will always be nil.
 func (m *InMemManager) RLock(ctx context.Context, token string) error {
 	m.rw.RLock()
-	rw, ok := m.aqu[token]
+	rw, ok := m.acqu[token]
 	m.rw.RUnlock()
 
 	if ok {
@@ -123,7 +123,7 @@ func (m *InMemManager) RLock(ctx context.Context, token string) error {
 // no chance that an error is returned. The return value will always be nil.
 func (m *InMemManager) Unlock(_ context.Context, token string) error {
 	m.rw.RLock()
-	rw, ok := m.aqu[token]
+	rw, ok := m.acqu[token]
 	m.rw.RUnlock()
 
 	if ok {
@@ -141,7 +141,7 @@ func (m *InMemManager) Unlock(_ context.Context, token string) error {
 // no chance that an error is returned. The return value will always be nil.
 func (m *InMemManager) RUnlock(_ context.Context, token string) error {
 	m.rw.RLock()
-	rw, ok := m.aqu[token]
+	rw, ok := m.acqu[token]
 	m.rw.RUnlock()
 
 	if ok {

@@ -15,7 +15,7 @@ func TestManager_AllocateMutexes(t *testing.T) {
 		hasToken func(m Manager, t string) bool
 	}{
 		{"inmem", ModeInMem, func(m Manager, t string) bool {
-			_, ok := m.(*InMemManager).aqu[t]
+			_, ok := m.(*InMemManager).acqu[t]
 			return ok
 		}},
 	}
