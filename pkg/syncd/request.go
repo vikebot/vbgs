@@ -5,9 +5,9 @@ import (
 )
 
 // Request represents a container around Manager that saves it's own in-memory
-// aquired lock-token chache. This cache is always checked before calling
-// the parent Manager, which enables features like multiple Lock calls for the
-// token, without getting errors.
+// aquired-lock-cache, which consists of a token:Mutex hashmap. This cache is
+// always checked before calling the parent Manager, which enables features
+// like multiple Lock calls for the token, without getting errors.
 type Request struct {
 	Mutexd
 	m    Manager
@@ -26,9 +26,9 @@ func newRequest(m Manager) *Request {
 // Lock locks the write-lock for the token if not already locked. In order to
 // aquire the write-lock the parent Manager is called.
 //
-// Because Request has it's own lock-aquisition cache which is checked before
-// the parent Manager is called Lock can be called multiple times without
-// getting errors.
+// Because Request has it's own aquired-lock-cache which is checked before the
+// parent Manager is called Lock can be called multiple times without getting
+// errors.
 func (r *Request) Lock(ctx context.Context, token string) error {
 	if _, ok := r.aquW[token]; ok {
 		return nil
@@ -47,9 +47,9 @@ func (r *Request) Lock(ctx context.Context, token string) error {
 // RLock locks the read-lock for the token if not already locked. In order to
 // aquire the read-lock the parent Manager is called.
 //
-// Because Request has it's own lock-aquisition cache which is checked before
-// the parent Manager is called RLock can be called multiple times without
-// getting errors.
+// Because Request has it's own aquired-lock-cache which is checked before the
+// parent Manager is called RLock can be called multiple times without getting
+// errors.
 func (r *Request) RLock(ctx context.Context, token string) error {
 	if _, ok := r.aquR[token]; ok {
 		return nil
@@ -68,9 +68,9 @@ func (r *Request) RLock(ctx context.Context, token string) error {
 // Unlock unlocks the write-lock for the token if not already locked. In order
 // to release the write-lock the parent Manager is called.
 //
-// Because Request has it's own lock-aquisition cache which is checked before
-// the parent Manager is called Unlock can be called multiple times without
-// getting errors.
+// Because Request has it's own aquired-lock-cache which is checked before the
+// parent Manager is called Unlock can be called multiple times without getting
+// errors.
 func (r *Request) Unlock(ctx context.Context, token string) error {
 	if _, ok := r.aquW[token]; !ok {
 		return nil
@@ -89,8 +89,8 @@ func (r *Request) Unlock(ctx context.Context, token string) error {
 // RUnlock unlocks the read-lock for the token if not already locked. In order
 // to release the read-lock the parent Manager is called.
 //
-// Because Request has it's own lock-aquisition cache which is checked before
-// the parent Manager is called RUnlock can be called multiple times without
+// Because Request has it's own aquired-lock-cache which is checked before the
+// parent Manager is called RUnlock can be called multiple times without
 // getting errors.
 func (r *Request) RUnlock(ctx context.Context, token string) error {
 	if _, ok := r.aquR[token]; !ok {
@@ -108,7 +108,7 @@ func (r *Request) RUnlock(ctx context.Context, token string) error {
 }
 
 // Aquired indicates if the the write-lock for the token was already aquired.
-// The check is performed using the lock-aquistition cache.
+// The check is performed using the aquired-lock-cache.
 func (r *Request) Aquired(token string) bool {
 	if _, ok := r.aquW[token]; ok {
 		return true
@@ -118,7 +118,7 @@ func (r *Request) Aquired(token string) bool {
 }
 
 // RAquired indicates if the the read-lock for the token was already aquired.
-// The check is performed using the lock-aquistition cache.
+// The check is performed using the aquired-lock-cache.
 func (r *Request) RAquired(token string) bool {
 	if _, ok := r.aquR[token]; ok {
 		return true
@@ -128,12 +128,12 @@ func (r *Request) RAquired(token string) bool {
 }
 
 // UnlockAll unlocks all read- and write-locks. The Unlocks itself are
-// performed with the parent Manager. Which token's we aquired is determined
-// via the lock-aquisition cache. All errors returned from the parent Mangager
+// performed with the parent Manager. Which tokens we aquired is determined
+// via the aquired-lock-cache. All errors returned from the parent Manager
 // are sent to the unbuffered error channel (Attention: this means you need
-// to receive on the channel. If you don't receive errors the application will
-// block.). After a Unlock attempt foreach previously aquired token is made the
-// channel is closed.
+// to receive on the channel. If you don't receive errors sent to it, the
+// application will block.). After one Unlock attempt foreach previousl
+// aquired token is made, the channel is closed.
 //
 // Example usage:
 //     for err := r.UnlockAll(context.Background()) {
