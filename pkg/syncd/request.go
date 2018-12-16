@@ -143,6 +143,8 @@ func (r *Request) UnlockAll(ctx context.Context) chan error {
 	errChan := make(chan error)
 
 	go func() {
+		defer close(errChan)
+
 		for token := range r.rLocks {
 			err := r.RUnlock(ctx, token)
 			if err != nil {
@@ -156,8 +158,6 @@ func (r *Request) UnlockAll(ctx context.Context) chan error {
 				errChan <- err
 			}
 		}
-
-		close(errChan)
 	}()
 
 	return errChan
