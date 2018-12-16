@@ -5,32 +5,32 @@ import (
 )
 
 // Request represents a container around Manager that saves it's own in-memory
-// aquired-lock-cache, which consists of a token:Mutex hashmap. This cache is
+// acquired-lock-cache, which consists of a token:Mutex hashmap. This cache is
 // always checked before calling the parent Manager, which enables features
 // like multiple Lock calls for the token, without getting errors.
 type Request struct {
-	m    Manager
-	aquR map[string]struct{}
-	aquW map[string]struct{}
+	m      Manager
+	rLocks map[string]struct{}
+	wLocks map[string]struct{}
 }
 
 // NewRequest initializes a new Request based on the passed Manager instance.
 func NewRequest(m Manager) *Request {
 	return &Request{
-		m:    m,
-		aquR: make(map[string]struct{}),
-		aquW: make(map[string]struct{}),
+		m:      m,
+		rLocks: make(map[string]struct{}),
+		wLocks: make(map[string]struct{}),
 	}
 }
 
 // Lock locks the write-lock for the token if not already locked. In order to
-// aquire the write-lock the parent Manager is called.
+// acquire the write-lock the parent Manager is called.
 //
-// Because Request has it's own aquired-lock-cache which is checked before the
+// Because Request has it's own acquired-lock-cache which is checked before the
 // parent Manager is called Lock can be called multiple times without getting
 // errors.
 func (r *Request) Lock(ctx context.Context, token string) error {
-	if _, ok := r.aquW[token]; ok {
+	if _, ok := r.wLocks[token]; ok {
 		return nil
 	}
 
@@ -39,19 +39,19 @@ func (r *Request) Lock(ctx context.Context, token string) error {
 		return err
 	}
 
-	r.aquW[token] = struct{}{}
+	r.wLocks[token] = struct{}{}
 
 	return nil
 }
 
 // RLock locks the read-lock for the token if not already locked. In order to
-// aquire the read-lock the parent Manager is called.
+// acquire the read-lock the parent Manager is called.
 //
-// Because Request has it's own aquired-lock-cache which is checked before the
+// Because Request has it's own acquired-lock-cache which is checked before the
 // parent Manager is called RLock can be called multiple times without getting
 // errors.
 func (r *Request) RLock(ctx context.Context, token string) error {
-	if _, ok := r.aquR[token]; ok {
+	if _, ok := r.rLocks[token]; ok {
 		return nil
 	}
 
@@ -60,7 +60,7 @@ func (r *Request) RLock(ctx context.Context, token string) error {
 		return err
 	}
 
-	r.aquR[token] = struct{}{}
+	r.rLocks[token] = struct{}{}
 
 	return nil
 }
@@ -68,11 +68,11 @@ func (r *Request) RLock(ctx context.Context, token string) error {
 // Unlock unlocks the write-lock for the token if not already locked. In order
 // to release the write-lock the parent Manager is called.
 //
-// Because Request has it's own aquired-lock-cache which is checked before the
+// Because Request has it's own acquired-lock-cache which is checked before the
 // parent Manager is called Unlock can be called multiple times without getting
 // errors.
 func (r *Request) Unlock(ctx context.Context, token string) error {
-	if _, ok := r.aquW[token]; !ok {
+	if _, ok := r.wLocks[token]; !ok {
 		return nil
 	}
 
@@ -81,7 +81,7 @@ func (r *Request) Unlock(ctx context.Context, token string) error {
 		return err
 	}
 
-	delete(r.aquW, token)
+	delete(r.wLocks, token)
 
 	return nil
 }
@@ -89,11 +89,11 @@ func (r *Request) Unlock(ctx context.Context, token string) error {
 // RUnlock unlocks the read-lock for the token if not already locked. In order
 // to release the read-lock the parent Manager is called.
 //
-// Because Request has it's own aquired-lock-cache which is checked before the
+// Because Request has it's own acquired-lock-cache which is checked before the
 // parent Manager is called RUnlock can be called multiple times without
 // getting errors.
 func (r *Request) RUnlock(ctx context.Context, token string) error {
-	if _, ok := r.aquR[token]; !ok {
+	if _, ok := r.rLocks[token]; !ok {
 		return nil
 	}
 
@@ -102,25 +102,25 @@ func (r *Request) RUnlock(ctx context.Context, token string) error {
 		return err
 	}
 
-	delete(r.aquR, token)
+	delete(r.rLocks, token)
 
 	return nil
 }
 
-// Aquired indicates if the the write-lock for the token was already aquired.
-// The check is performed using the aquired-lock-cache.
-func (r *Request) Aquired(token string) bool {
-	if _, ok := r.aquW[token]; ok {
+// Acquired indicates if the the write-lock for the token was already acquired.
+// The check is performed using the acquired-lock-cache.
+func (r *Request) Acquired(token string) bool {
+	if _, ok := r.wLocks[token]; ok {
 		return true
 	}
 
 	return false
 }
 
-// RAquired indicates if the the read-lock for the token was already aquired.
-// The check is performed using the aquired-lock-cache.
-func (r *Request) RAquired(token string) bool {
-	if _, ok := r.aquR[token]; ok {
+// RAcquired indicates if the the read-lock for the token was already acquired.
+// The check is performed using the acquired-lock-cache.
+func (r *Request) RAcquired(token string) bool {
+	if _, ok := r.rLocks[token]; ok {
 		return true
 	}
 
@@ -128,12 +128,12 @@ func (r *Request) RAquired(token string) bool {
 }
 
 // UnlockAll unlocks all read- and write-locks. The Unlocks itself are
-// performed with the parent Manager. Which tokens we aquired is determined
-// via the aquired-lock-cache. All errors returned from the parent Manager
+// performed with the parent Manager. Which tokens we acquired is determined
+// via the acquired-lock-cache. All errors returned from the parent Manager
 // are sent to the unbuffered error channel (Attention: this means you need
 // to receive on the channel. If you don't receive errors sent to it, the
 // application will block.). After one Unlock attempt foreach previousl
-// aquired token is made, the channel is closed.
+// acquired token is made, the channel is closed.
 //
 // Example usage:
 //     for err := r.UnlockAll(context.Background()) {
@@ -143,14 +143,14 @@ func (r *Request) UnlockAll(ctx context.Context) chan error {
 	errChan := make(chan error)
 
 	go func() {
-		for token := range r.aquR {
+		for token := range r.rLocks {
 			err := r.RUnlock(ctx, token)
 			if err != nil {
 				errChan <- err
 			}
 		}
 
-		for token := range r.aquW {
+		for token := range r.wLocks {
 			err := r.Unlock(ctx, token)
 			if err != nil {
 				errChan <- err

@@ -17,8 +17,7 @@ func testMutexdFullFromManager(t *testing.T, m Manager) {
 func testMutexdLock(t *testing.T, m Mutexd) {
 	assert.NotNil(t, m)
 
-	err := m.Lock(context.Background(), "MAP_X110_Y40")
-	assert.Nil(t, err)
+	assert.Nil(t, m.Lock(context.Background(), "MAP_X110_Y40"))
 
 	chronology := make(chan int, 2)
 
@@ -26,14 +25,14 @@ func testMutexdLock(t *testing.T, m Mutexd) {
 	wg.Add(2)
 
 	go func() {
-		m.Lock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, m.Lock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 0
-		m.Unlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, m.Unlock(context.Background(), "MAP_X110_Y40"))
 		wg.Done()
 	}()
 	go func() {
 		time.Sleep(1 * time.Second)
-		m.Unlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, m.Unlock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 1
 		wg.Done()
 	}()
@@ -41,9 +40,11 @@ func testMutexdLock(t *testing.T, m Mutexd) {
 	wg.Wait()
 	close(chronology)
 
-	var chronologyArr []int
+	chronologyArr := make([]int, 2)
+	idx := 0
 	for i := range chronology {
-		chronologyArr = append(chronologyArr, i)
+		chronologyArr[idx] = i
+		idx++
 	}
 
 	assert.Equal(t, []int{1, 0}, chronologyArr)
@@ -52,8 +53,7 @@ func testMutexdLock(t *testing.T, m Mutexd) {
 func testMutexdRLock(t *testing.T, m Mutexd) {
 	assert.NotNil(t, m)
 
-	err := m.RLock(context.Background(), "MAP_X110_Y40")
-	assert.Nil(t, err)
+	assert.Nil(t, m.RLock(context.Background(), "MAP_X110_Y40"))
 
 	chronology := make(chan int, 2)
 
@@ -61,14 +61,14 @@ func testMutexdRLock(t *testing.T, m Mutexd) {
 	wg.Add(2)
 
 	go func() {
-		m.RLock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, m.RLock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 0
-		m.RUnlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, m.RUnlock(context.Background(), "MAP_X110_Y40"))
 		wg.Done()
 	}()
 	go func() {
 		time.Sleep(1 * time.Second)
-		m.RUnlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, m.RUnlock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 1
 		wg.Done()
 	}()
@@ -76,9 +76,11 @@ func testMutexdRLock(t *testing.T, m Mutexd) {
 	wg.Wait()
 	close(chronology)
 
-	var chronologyArr []int
+	chronologyArr := make([]int, 2)
+	idx := 0
 	for i := range chronology {
-		chronologyArr = append(chronologyArr, i)
+		chronologyArr[idx] = i
+		idx++
 	}
 
 	assert.Equal(t, []int{0, 1}, chronologyArr)

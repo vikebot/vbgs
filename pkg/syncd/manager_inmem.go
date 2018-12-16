@@ -21,7 +21,7 @@ func NewInMemManager() *InMemManager {
 }
 
 func (m *InMemManager) setTokenMutex(token string, mutex *sync.RWMutex) bool {
-	// Aquire lock for map writing
+	// Acquire lock for map writing
 	m.rw.Lock()
 
 	// check if lock was set in meantime
@@ -77,8 +77,8 @@ func (m *InMemManager) Lock(ctx context.Context, token string) error {
 	mutex.Lock()
 
 	if !m.setTokenMutex(token, &mutex) {
-		// set operation failed, because the token now exists. Recursivly call
-		// ourself again. Next time we should end in OK and try to aquire the
+		// set operation failed, because the token now exists. Recursively call
+		// ourself again. Next time we should end in OK and try to acquire the
 		// correct mutex's lock.
 		return m.Lock(ctx, token)
 	}
@@ -106,8 +106,8 @@ func (m *InMemManager) RLock(ctx context.Context, token string) error {
 	mutex.RLock()
 
 	if !m.setTokenMutex(token, &mutex) {
-		// set operation failed, because the token now exists. Recursivly call
-		// ourself again. Next time we should end in OK and try to aquire the
+		// set operation failed, because the token now exists. Recursively call
+		// ourself again. Next time we should end in OK and try to acquire the
 		// correct mutex's lock.
 		return m.RLock(ctx, token)
 	}

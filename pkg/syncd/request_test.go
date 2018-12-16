@@ -13,7 +13,7 @@ func testRequestFullFromManager(t *testing.T, m Manager) {
 	assert.NotNil(t, m)
 
 	testRequestMultipleCalls(t, m.NewRequest())
-	testRequestAquiredCache(t, m.NewRequest())
+	testRequestAcquiredCache(t, m.NewRequest())
 	testRequestLockChronology(t, m.NewRequest(), m.NewRequest())
 	testRequestRLockChronology(t, m.NewRequest(), m.NewRequest())
 	testRequestUnlockAll(t, m.NewRequest())
@@ -29,38 +29,38 @@ func TestRequest_MultipleCalls(t *testing.T) {
 func testRequestMultipleCalls(t *testing.T, r *Request) {
 	assert.NotNil(t, r)
 
-	r.Lock(context.Background(), "MAP_X110_Y40")
-	r.Lock(context.Background(), "MAP_X110_Y40")
+	assert.Nil(t, r.Lock(context.Background(), "MAP_X110_Y40"))
+	assert.Nil(t, r.Lock(context.Background(), "MAP_X110_Y40"))
 
-	r.Unlock(context.Background(), "MAP_X110_Y40")
-	r.Unlock(context.Background(), "MAP_X110_Y40")
+	assert.Nil(t, r.Unlock(context.Background(), "MAP_X110_Y40"))
+	assert.Nil(t, r.Unlock(context.Background(), "MAP_X110_Y40"))
 
-	r.RLock(context.Background(), "MAP_X110_Y40")
-	r.RLock(context.Background(), "MAP_X110_Y40")
+	assert.Nil(t, r.RLock(context.Background(), "MAP_X110_Y40"))
+	assert.Nil(t, r.RLock(context.Background(), "MAP_X110_Y40"))
 
-	r.RUnlock(context.Background(), "MAP_X110_Y40")
-	r.RUnlock(context.Background(), "MAP_X110_Y40")
+	assert.Nil(t, r.RUnlock(context.Background(), "MAP_X110_Y40"))
+	assert.Nil(t, r.RUnlock(context.Background(), "MAP_X110_Y40"))
 }
 
-func TestRequest_AquiredCache(t *testing.T) {
+func TestRequest_AcquiredCache(t *testing.T) {
 	m, err := NewManager(ModeInMem)
 	assert.Nil(t, err)
 
-	testRequestAquiredCache(t, m.NewRequest())
+	testRequestAcquiredCache(t, m.NewRequest())
 }
 
-func testRequestAquiredCache(t *testing.T, r *Request) {
+func testRequestAcquiredCache(t *testing.T, r *Request) {
 	assert.NotNil(t, r)
 
-	r.Lock(context.Background(), "MAP_X110_Y40")
-	assert.True(t, r.Aquired("MAP_X110_Y40"))
-	assert.False(t, r.Aquired("MAP"))
-	r.Unlock(context.Background(), "MAP_X110_Y40")
+	assert.Nil(t, r.Lock(context.Background(), "MAP_X110_Y40"))
+	assert.True(t, r.Acquired("MAP_X110_Y40"))
+	assert.False(t, r.Acquired("MAP"))
+	assert.Nil(t, r.Unlock(context.Background(), "MAP_X110_Y40"))
 
-	r.RLock(context.Background(), "MAP_X110_Y40")
-	assert.True(t, r.RAquired("MAP_X110_Y40"))
-	assert.False(t, r.RAquired("MAP"))
-	r.RUnlock(context.Background(), "MAP_X110_Y40")
+	assert.Nil(t, r.RLock(context.Background(), "MAP_X110_Y40"))
+	assert.True(t, r.RAcquired("MAP_X110_Y40"))
+	assert.False(t, r.RAcquired("MAP"))
+	assert.Nil(t, r.RUnlock(context.Background(), "MAP_X110_Y40"))
 }
 
 func TestRequest_LockChronology(t *testing.T) {
@@ -81,12 +81,12 @@ func testRequestLockChronology(t *testing.T, r1, r2 *Request) {
 	wg.Add(2)
 
 	go func() {
-		r1.Lock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r1.Lock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 0
 
 		time.Sleep(2 * time.Second)
 
-		r1.Unlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r1.Unlock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 2
 
 		wg.Done()
@@ -94,12 +94,12 @@ func testRequestLockChronology(t *testing.T, r1, r2 *Request) {
 	go func() {
 		time.Sleep(1 * time.Second)
 
-		r2.Lock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r2.Lock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 1
 
 		time.Sleep(2 * time.Second)
 
-		r2.Unlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r2.Unlock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 3
 
 		wg.Done()
@@ -108,9 +108,11 @@ func testRequestLockChronology(t *testing.T, r1, r2 *Request) {
 	wg.Wait()
 	close(chronology)
 
-	var chronologyArr []int
+	chronologyArr := make([]int, 4)
+	idx := 0
 	for i := range chronology {
-		chronologyArr = append(chronologyArr, i)
+		chronologyArr[idx] = i
+		idx++
 	}
 
 	assert.Equal(t, []int{0, 2, 1, 3}, chronologyArr)
@@ -134,12 +136,12 @@ func testRequestRLockChronology(t *testing.T, r1, r2 *Request) {
 	wg.Add(2)
 
 	go func() {
-		r1.RLock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r1.RLock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 0
 
 		time.Sleep(2 * time.Second)
 
-		r1.RUnlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r1.RUnlock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 2
 
 		wg.Done()
@@ -147,12 +149,12 @@ func testRequestRLockChronology(t *testing.T, r1, r2 *Request) {
 	go func() {
 		time.Sleep(1 * time.Second)
 
-		r2.RLock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r2.RLock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 1
 
 		time.Sleep(2 * time.Second)
 
-		r2.RUnlock(context.Background(), "MAP_X110_Y40")
+		assert.Nil(t, r2.RUnlock(context.Background(), "MAP_X110_Y40"))
 		chronology <- 3
 
 		wg.Done()
@@ -161,9 +163,11 @@ func testRequestRLockChronology(t *testing.T, r1, r2 *Request) {
 	wg.Wait()
 	close(chronology)
 
-	var chronologyArr []int
+	chronologyArr := make([]int, 4)
+	idx := 0
 	for i := range chronology {
-		chronologyArr = append(chronologyArr, i)
+		chronologyArr[idx] = i
+		idx++
 	}
 
 	assert.Equal(t, []int{0, 1, 2, 3}, chronologyArr)
@@ -180,18 +184,18 @@ func TestRequest_UnlockAll(t *testing.T) {
 func testRequestUnlockAll(t *testing.T, r *Request) {
 	assert.NotNil(t, r)
 
-	r.Lock(context.Background(), "MAP1")
-	r.Lock(context.Background(), "MAP2")
-	r.RLock(context.Background(), "MAP3")
-	r.RLock(context.Background(), "MAP4")
+	assert.Nil(t, r.Lock(context.Background(), "MAP1"))
+	assert.Nil(t, r.Lock(context.Background(), "MAP2"))
+	assert.Nil(t, r.RLock(context.Background(), "MAP3"))
+	assert.Nil(t, r.RLock(context.Background(), "MAP4"))
 
 	err := r.UnlockAll(context.Background())
 	for e := range err {
 		assert.Nil(t, e)
 	}
 
-	r.Lock(context.Background(), "MAP1")
-	r.Lock(context.Background(), "MAP2")
-	r.RLock(context.Background(), "MAP3")
-	r.RLock(context.Background(), "MAP4")
+	assert.Nil(t, r.Lock(context.Background(), "MAP1"))
+	assert.Nil(t, r.Lock(context.Background(), "MAP2"))
+	assert.Nil(t, r.RLock(context.Background(), "MAP3"))
+	assert.Nil(t, r.RLock(context.Background(), "MAP4"))
 }

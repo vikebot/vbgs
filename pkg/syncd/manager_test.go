@@ -89,8 +89,7 @@ func (m *errTestManager) NewRequest() *Request {
 }
 
 func TestErrorManager(t *testing.T) {
-	var m Manager
-	m = &errTestManager{}
+	var m Manager = &errTestManager{}
 
 	// Manager
 
@@ -117,21 +116,21 @@ func TestErrorManager(t *testing.T) {
 	err = r.Lock(context.Background(), "MAP_X110_Y40")
 	assert.NotNil(t, err)
 	assert.Equal(t, "lock", err.Error())
-	_, ok := r.aquW["MAP_X110_Y40"]
+	_, ok := r.wLocks["MAP_X110_Y40"]
 	assert.False(t, ok)
 
 	err = r.RLock(context.Background(), "MAP_X110_Y40")
 	assert.NotNil(t, err)
 	assert.Equal(t, "rlock", err.Error())
-	_, ok = r.aquR["MAP_X110_Y40"]
+	_, ok = r.rLocks["MAP_X110_Y40"]
 	assert.False(t, ok)
 
-	r.aquW["MAP_X110_Y40"] = struct{}{}
+	r.wLocks["MAP_X110_Y40"] = struct{}{}
 	err = r.Unlock(context.Background(), "MAP_X110_Y40")
 	assert.NotNil(t, err)
 	assert.Equal(t, "unlock", err.Error())
 
-	r.aquR["MAP_X110_Y40"] = struct{}{}
+	r.rLocks["MAP_X110_Y40"] = struct{}{}
 	err = r.RUnlock(context.Background(), "MAP_X110_Y40")
 	assert.NotNil(t, err)
 	assert.Equal(t, "runlock", err.Error())
