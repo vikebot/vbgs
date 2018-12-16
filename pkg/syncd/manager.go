@@ -18,7 +18,7 @@ type Manager interface {
 // NewManager initializes a new Manager instance for the passed syncd.Mode
 func NewManager(mode Mode) (c Manager, err error) {
 	switch mode {
-	case InMem:
+	case ModeInMem:
 		return NewInMemManager(), nil
 	}
 

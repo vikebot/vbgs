@@ -20,7 +20,7 @@ func testRequestFullFromManager(t *testing.T, m Manager) {
 }
 
 func TestRequest_MultipleCalls(t *testing.T) {
-	m, err := NewManager(InMem)
+	m, err := NewManager(ModeInMem)
 	assert.Nil(t, err)
 
 	testRequestMultipleCalls(t, m.NewRequest())
@@ -43,7 +43,7 @@ func testRequestMultipleCalls(t *testing.T, r *Request) {
 }
 
 func TestRequest_AquiredCache(t *testing.T) {
-	m, err := NewManager(InMem)
+	m, err := NewManager(ModeInMem)
 	assert.Nil(t, err)
 
 	testRequestAquiredCache(t, m.NewRequest())
@@ -64,7 +64,7 @@ func testRequestAquiredCache(t *testing.T, r *Request) {
 }
 
 func TestRequest_LockChronology(t *testing.T) {
-	m, err := NewManager(InMem)
+	m, err := NewManager(ModeInMem)
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
@@ -109,7 +109,7 @@ func testRequestLockChronology(t *testing.T, r1, r2 *Request) {
 }
 
 func TestRequest_RLockChronology(t *testing.T) {
-	m, err := NewManager(InMem)
+	m, err := NewManager(ModeInMem)
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 
@@ -154,7 +154,7 @@ func testRequestRLockChronology(t *testing.T, r1, r2 *Request) {
 }
 
 func TestRequest_UnlockAll(t *testing.T) {
-	m, err := NewManager(InMem)
+	m, err := NewManager(ModeInMem)
 	assert.Nil(t, err)
 	assert.NotNil(t, m)
 

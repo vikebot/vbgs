@@ -15,7 +15,7 @@ func TestNewManager(t *testing.T) {
 		correctType func(m Manager) bool
 		wantErr     bool
 	}{
-		{"inmem", InMem, func(m Manager) bool {
+		{"inmem", ModeInMem, func(m Manager) bool {
 			_, ok := m.(*InMemManager)
 			return ok
 		}, false},
