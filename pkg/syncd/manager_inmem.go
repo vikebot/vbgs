@@ -12,7 +12,7 @@ type InMemManager struct {
 	acqu map[string]*sync.RWMutex
 }
 
-// NewInMemManager intializues a new InMemManager which implements the Manager
+// NewInMemManager initializes a new InMemManager which implements the Manager
 // interface.
 func NewInMemManager() *InMemManager {
 	return &InMemManager{
@@ -23,18 +23,17 @@ func NewInMemManager() *InMemManager {
 func (m *InMemManager) setTokenMutex(token string, mutex *sync.RWMutex) bool {
 	// Acquire lock for map writing
 	m.rw.Lock()
+	// release write lock for map
+	defer m.rw.Unlock()
 
 	// check if lock was set in meantime
 	if _, ok := m.acqu[token]; ok {
-		// if so discard our allocated lock and try again
-		mutex.Unlock()
+		// if so return false
 		return false
 	}
 
 	// noone set a mutex for our token yet -> set it
 	m.acqu[token] = mutex
-	// release write lock for map
-	m.rw.Unlock()
 
 	return true
 }

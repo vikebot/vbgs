@@ -128,11 +128,11 @@ func (r *Request) RAcquired(token string) bool {
 }
 
 // UnlockAll unlocks all read- and write-locks. The Unlocks itself are
-// performed with the parent Manager. Which tokens we acquired is determined
+// performed with the parent Manager. Which tokens were acquired is determined
 // via the acquired-lock-cache. All errors returned from the parent Manager
 // are sent to the unbuffered error channel (Attention: this means you need
 // to receive on the channel. If you don't receive errors sent to it, the
-// application will block.). After one Unlock attempt foreach previousl
+// application will block.). After one Unlock attempt foreach previously
 // acquired token is made, the channel is closed.
 //
 // Example usage:
