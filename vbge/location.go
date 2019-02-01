@@ -54,8 +54,7 @@ func (l *Location) IsInMap() bool {
 // IsAccessable returns true if the location is accessable defined in primitives.go
 func (l *Location) IsAccessable(m *MapEntity) bool {
 	for _, b := range InAccessableBlocks {
-		switch m.Matrix[l.Y][l.X].Blocktype {
-		case b:
+		if m.Matrix[l.Y][l.X].Blocktype == b {
 			return false
 		}
 	}
