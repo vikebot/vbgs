@@ -77,6 +77,11 @@ var (
 	maxScoutLength = 100
 )
 
+// InAccessableBlocks is an array of blocks which can't be accessed by a player
+var InAccessableBlocks = [...]string{
+	blockWater,
+}
+
 // SetMapDimensions sets the default map dimensions (e.g. width and health)
 func SetMapDimensions(width, height int) {
 	MapWidth = width
