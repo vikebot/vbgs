@@ -37,6 +37,29 @@ func NewMapEntity(width, height int) *MapEntity {
 	}
 }
 
+// NewMapEntityFromMap allocates memory for a new map with the size specified by the
+// `width` and `height` parameter and the structure of the given [][]string
+func NewMapEntityFromMap(width, height int, blockMap [][]string) *MapEntity {
+	matrix := make([][]*BlockEntity, height)
+	for i := range matrix {
+		matrix[i] = make([]*BlockEntity, width)
+	}
+
+	for yi := 0; yi < height; yi++ {
+		for xi := 0; xi < width; xi++ {
+			matrix[yi][xi] = &BlockEntity{
+				Blocktype: blockMap[yi][xi],
+			}
+		}
+	}
+
+	return &MapEntity{
+		Height: height,
+		Width:  width,
+		Matrix: matrix,
+	}
+}
+
 // PInEnclosedArea returns all players with their relative position to l inside
 // the enclosed area. This function isn't safe for concurrent use.
 func (me *MapEntity) PInEnclosedArea(startX, endX, startY, endY int, l *Location) NotifyGroupLocated {

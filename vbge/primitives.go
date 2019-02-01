@@ -39,9 +39,9 @@ var (
 	// MapProps are the dimensions of the complete map used for all players
 
 	// MapWidth is the length in x-direction
-	MapWidth = 11
+	MapWidth = 101
 	// MapHeight is the length in y-direction
-	MapHeight = 11
+	MapHeight = 101
 	// HalfmapWidth is the half value of 'MapWidth'
 	HalfmapWidth = MapWidth / 2
 

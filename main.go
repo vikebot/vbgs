@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	logSimple "log"
 	"math/rand"
 	"os"
+	"path"
 	"time"
 
 	"github.com/vikebot/vbgs/pkg/ntfydistr"
@@ -66,9 +69,29 @@ func gsInit() {
 }
 
 func battleInit(joinedPlayers []int) {
+	dir := "config/map"
+	filename := "map.json"
+
+	file, err := os.Open(path.Join(dir, filename))
+	if err != nil {
+		log.Fatal("unable to open file", zap.String("filename", filename), zap.Error(err))
+	}
+	defer file.Close()
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatal("unable to read file", zap.String("filename", filename), zap.Error(err))
+	}
+
+	var blocks [][]string
+	err = json.Unmarshal(data, &blocks)
+	if err != nil {
+		log.Fatal("unable to unmarshal json", zap.String("filename", filename), zap.Error(err))
+	}
+
 	battle = &vbge.Battle{
 		// MapSize
-		Map:     vbge.NewMapEntity(vbge.MapHeight, vbge.MapWidth),
+		Map:     vbge.NewMapEntityFromMap(vbge.MapHeight, vbge.MapWidth, blocks),
 		Players: make(map[int]*vbge.Player),
 	}
 	// MapSize
