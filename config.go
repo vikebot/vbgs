@@ -62,7 +62,7 @@ type gameserverConfig struct {
 // loadConfig takes a path to a configfile and returns a
 // pointer to a gameserverConfig
 func loadConfig(path string) *gameserverConfig {
-	f, err := ioutil.ReadFile(path) /* #nosec G304 */
+	f, err := ioutil.ReadFile(path)
 	if err != nil {
 		fmt.Println("failed to load config: " + err.Error())
 		os.Exit(-1)

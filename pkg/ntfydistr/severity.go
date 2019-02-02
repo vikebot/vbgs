@@ -25,7 +25,7 @@ const (
 
 // String returns a lower-case ASCII representation of the severity.
 func (s Severity) String() string {
-	str, _ := s.string() /* #nosec G104 */
+	str, _ := s.string()
 	return str
 }
 
@@ -48,9 +48,6 @@ func (s Severity) string() (string, error) {
 // drops the -Severity prefix (see example).
 func (s Severity) MarshalText() ([]byte, error) {
 	str, err := s.string()
-	if err != nil {
-		return nil, err
-	}
 	return []byte(str), err
 }
 

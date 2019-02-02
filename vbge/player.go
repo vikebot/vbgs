@@ -38,11 +38,10 @@ func NewPlayerWithSpawn(userID int, m *MapEntity) (p *Player, err error) {
 	}
 
 	// Search random picture
-	/* #nosec G404 */
 	if rand.Int()%2 == 0 {
-		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png" /* #nosec G404 */
+		p.PicLink = "male/avatar" + strconv.Itoa((rand.Int()%20)+1) + ".png"
 	} else {
-		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png" /* #nosec G404 */
+		p.PicLink = "female/avatar" + strconv.Itoa((rand.Int()%15)+1) + ".png"
 	}
 
 	// Spawn the player
@@ -426,7 +425,6 @@ func (p *Player) Undefend() (ngl NotifyGroupLocated, err error) {
 func (p *Player) Spawn() error {
 	for i := 0; i < 100; i++ {
 		// Randomly generate a position inside the map
-		/* #nosec G404 */
 		loc := Location{
 			X: rand.Int() % MapWidth,
 			Y: rand.Int() % MapHeight,
