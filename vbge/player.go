@@ -122,6 +122,10 @@ func (p *Player) Move(dir string) (ngl NotifyGroupLocated, err error) {
 		return nil, ErrInaccessable
 	}
 
+	if !locc.IsAccessable(p.Map) {
+		return nil, ErrInaccessable
+	}
+
 	// lock the map
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()

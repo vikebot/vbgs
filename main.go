@@ -91,7 +91,6 @@ func battleInit(joinedPlayers []int) {
 	}
 
 	battle = &vbge.Battle{
-		// MapSize
 		Map:     vbge.NewMapEntityFromMap(vbge.MapHeight, vbge.MapWidth, blocks),
 		Players: make(map[int]*vbge.Player),
 	}
@@ -105,7 +104,6 @@ func battleInit(joinedPlayers []int) {
 		}
 		battle.Players[j] = p
 	}
-
 }
 
 func main() {

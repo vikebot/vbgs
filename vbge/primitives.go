@@ -39,9 +39,9 @@ var (
 	// MapProps are the dimensions of the complete map used for all players
 
 	// MapWidth is the length in x-direction
-	MapWidth = 31
+	MapWidth = 101
 	// MapHeight is the length in y-direction
-	MapHeight = 31
+	MapHeight = 101
 	// HalfmapWidth is the half value of 'MapWidth'
 	HalfmapWidth = MapWidth / 2
 
@@ -77,8 +77,8 @@ var (
 	maxScoutLength = 100
 )
 
-// InAccessableBlocks is an array of blocks which can't be accessed by a player
-var InAccessableBlocks = [...]string{
+// InaccessableBlocks is an array of blocks which can't be accessed by a player
+var InaccessableBlocks = [...]string{
 	blockWater,
 }
 
