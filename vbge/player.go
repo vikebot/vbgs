@@ -438,7 +438,6 @@ func (p *Player) Spawn() error {
 
 		// Check whether there already is a player or not
 		empty := !p.Map.Matrix[loc.Y][loc.X].HasResident()
-
 		isWater := p.Map.Matrix[loc.Y][loc.X].Blocktype == blockWater
 
 		if empty && !isWater {
