@@ -433,9 +433,12 @@ func (p *Player) Spawn() error {
 		}
 
 		// Check whether there already is a player or not
-		var empty bool
-		if empty = !p.Map.Matrix[loc.Y][loc.X].HasResident(); empty {
-			// If the field is empty we place the player
+		empty := !p.Map.Matrix[loc.Y][loc.X].HasResident()
+
+		isWater := p.Map.Matrix[loc.Y][loc.X].Blocktype == blockWater
+
+		if empty && !isWater {
+			// If the field is empty and not water we place the player
 			p.Map.Matrix[loc.Y][loc.X].JoinArea(p)
 			p.Location = &loc
 			p.Health = NewDefaultHealth()
