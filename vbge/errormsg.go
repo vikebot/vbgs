@@ -16,9 +16,6 @@ var (
 	// should happen
 	ErrHasResident = errors.New("Block already has a resident")
 
-	// ErrInaccessable appearse when a block is not accessable by a player
-	ErrInaccessable = errors.New("Location is not accessable due to the block type")
-
 	// ErrAlreadyDef describes that the player already is defending
 	ErrAlreadyDef = errors.New("Player is already defending")
 

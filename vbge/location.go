@@ -51,17 +51,6 @@ func (l *Location) IsInMap() bool {
 		l.Y < MapHeight)
 }
 
-// IsAccessable returns true if the location is accessable defined in primitives.go
-func (l *Location) IsAccessable(m *MapEntity) bool {
-	for _, b := range InAccessableBlocks {
-		if m.Matrix[l.Y][l.X].Blocktype == b {
-			return false
-		}
-	}
-
-	return true
-}
-
 // RelativeFrom returns the relative position from the given
 // player location (pl) => the relative position is from the
 // view of l
@@ -71,18 +60,4 @@ func (l *Location) RelativeFrom(pl *Location) *Location {
 		Y: l.Y - pl.Y,
 	}
 	return &nl
-}
-
-// ToARLocation converts a Location to a ARLocation with isAbs = faalse
-func (l *Location) ToARLocation() *ARLocation {
-	return &ARLocation{
-		IsAbs:    false,
-		Location: *l,
-	}
-}
-
-// ARLocation is a type to define a location as absolut or relative
-type ARLocation struct {
-	Location
-	IsAbs bool `json:"isabs"`
 }

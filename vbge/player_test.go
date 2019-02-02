@@ -122,7 +122,7 @@ func TestPlayerMoveOutOfMap(t *testing.T) {
 				Rl: NewOpLimitations(),
 			}
 
-			_, err := p.Move(c.playerMove.ToDir)
+			_, _, err := p.Move(c.playerMove.ToDir)
 			if err == nil {
 				t.Errorf(c.name)
 			}
@@ -189,7 +189,7 @@ func TestPlayerRadar(t *testing.T) {
 				Rl:       NewOpLimitations(),
 			}
 
-			playerCount, _ := p.Radar()
+			playerCount, _, _ := p.Radar()
 
 			if playerCount != c.wantedPlayerCount {
 				t.Fail()
@@ -225,7 +225,7 @@ func TestPlayerScout(t *testing.T) {
 				Rl:       NewOpLimitations(),
 			}
 
-			playerCount, _ := p.Scout(c.distance)
+			playerCount, _, _ := p.Scout(c.distance)
 
 			if playerCount != c.wantedPlayerCount {
 				t.Fail()
@@ -255,7 +255,7 @@ func TestPlayerEnvironment(t *testing.T) {
 				Rl:       NewOpLimitations(),
 			}
 
-			matrix, _ := p.Environment()
+			matrix, _, _ := p.Environment()
 
 			for y := 0; y < HrHeight; y++ {
 				for x := 0; x < HrWidth; x++ {
@@ -298,7 +298,7 @@ func TestPlayerWatch(t *testing.T) {
 				Health:   NewDefaultHealth(),
 			}
 
-			matrix, _ := p.Watch()
+			matrix, _, _ := p.Watch()
 
 			healthCount := 0
 
@@ -364,7 +364,7 @@ func TestPlayerAttack(t *testing.T) {
 			returnedHealth := 0
 			for i := 0; i < c.attackCount; i++ {
 				var err error
-				returnedHealth, _, err = p.Attack(func(e *Player, health int, ngl NotifyGroupLocated) {}, func(e *Player, ngl NotifyGroupLocated) {}, func(e *Player, ngl NotifyGroupLocated) error { return nil }, func(p []Player) {})
+				returnedHealth, _, _, err = p.Attack(func(e *Player, health int, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(p []Player, ng NotifyGroup) {})
 				if err != nil {
 					t.Errorf("Attack() err = %v, wantedErr = false", err)
 					return
@@ -407,7 +407,7 @@ func TestPlayerAttackError(t *testing.T) {
 				Rl:       NewOpLimitations(),
 			}
 
-			_, _, err := p.Attack(func(e *Player, health int, ngl NotifyGroupLocated) {}, func(e *Player, ngl NotifyGroupLocated) {}, func(e *Player, ngl NotifyGroupLocated) error { return nil }, func(p []Player) {})
+			_, _, _, err := p.Attack(func(e *Player, health int, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(e *Player, ng NotifyGroup) {}, func(p []Player, ng NotifyGroup) {})
 			if err == nil || err != c.wantedError {
 				t.Errorf("Attack() = %v, want %v", err.Error(), c.wantedError.Error())
 			}

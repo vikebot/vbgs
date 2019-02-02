@@ -39,9 +39,9 @@ var (
 	// MapProps are the dimensions of the complete map used for all players
 
 	// MapWidth is the length in x-direction
-	MapWidth = 101
+	MapWidth = 11
 	// MapHeight is the length in y-direction
-	MapHeight = 101
+	MapHeight = 11
 	// HalfmapWidth is the half value of 'MapWidth'
 	HalfmapWidth = MapWidth / 2
 
@@ -76,11 +76,6 @@ var (
 	// maxScoutLength is the distance how far a player can scout
 	maxScoutLength = 100
 )
-
-// InAccessableBlocks is an array of blocks which can't be accessed by a player
-var InAccessableBlocks = [...]string{
-	blockWater,
-}
 
 // SetMapDimensions sets the default map dimensions (e.g. width and health)
 func SetMapDimensions(width, height int) {

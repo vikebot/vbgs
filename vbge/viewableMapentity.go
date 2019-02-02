@@ -2,11 +2,11 @@ package vbge
 
 // PlayerResp is the response value of player for vbwatch
 type PlayerResp struct {
-	GRID          string      `json:"grid"`
-	Health        int         `json:"health"`
-	CharacterType string      `json:"ct"`
-	WatchDir      string      `json:"watchdir"`
-	Location      *ARLocation `json:"location"`
+	GRID          string   `json:"grid"`
+	Health        int      `json:"health"`
+	CharacterType string   `json:"ct"`
+	WatchDir      string   `json:"watchdir"`
+	Location      Location `json:"location"`
 }
 
 // EntityResp is the response value of a specific location
@@ -120,7 +120,7 @@ func fillMatrixWithER(matrix [][]*EntityResp, me *MapEntity, direction string) [
 					Health:        resident.Health.HealthSynced(),
 					CharacterType: resident.CharacterType,
 					WatchDir:      resident.WatchDir,
-					Location:      resident.Location.RelativeFrom(loc).ToARLocation(),
+					Location:      *resident.Location.RelativeFrom(loc),
 				}
 			}
 

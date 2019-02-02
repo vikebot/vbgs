@@ -1,7 +1,5 @@
 package main
 
-import "time"
-
 type undefendObj struct {
 }
 
@@ -11,21 +9,14 @@ type undefendPacket struct {
 }
 
 func opUndefend(c *ntcpclient, packtet undefendPacket) {
-	// c.Player.Rl.Defend.Take()
-	time.Sleep(1000 * time.Millisecond)
+	c.Player.Rl.Defend.Take()
 
-	ng, err := c.Player.Undefend()
+	ng, err := c.Player.Defend()
 	if err != nil {
 		c.Respond(err.Error())
 		return
 	}
 	c.RespondNil()
 
-	dist.PushGroup("game", ng.UserIDs(), struct {
-		GRID string `json:"grid"`
-		Type string `json:"undefend"`
-	}{
-		c.Player.GRenderID,
-		"undefend",
-	}, c.Log)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"undefend"}`)), notifyChannelGroup, ng, c.LogCtx)
 }

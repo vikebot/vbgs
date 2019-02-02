@@ -100,5 +100,5 @@ func registryInit() {
 	nwsRegistry = regnws{
 		m: map[int][]*nwsclient{},
 	}
-	log.Info("initialized registry storages for ntcpclient and nwsclient structs")
+	logctx.Info("initialized registry storages for ntcpclient and nwsclient structs")
 }

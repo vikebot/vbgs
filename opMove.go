@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
+	"go.uber.org/zap"
 )
 
 type moveObj struct {
@@ -28,7 +31,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 		return
 	}
 
-	ngl, err := c.Player.Move(dir)
+	ng, relPos, err := c.Player.Move(dir)
 	if err != nil {
 		c.Respond(err.Error())
 		return
@@ -39,6 +42,11 @@ func opMove(c *ntcpclient, packet movePacket) {
 
 	// get new line for player
 	newLine := vbge.GetNewLineMapentity(vbge.RenderWidth, c.Player.UserID, battle, dir)
+	line, err := json.Marshal(&newLine)
+	if err != nil {
+		c.LogCtx.Error("unable to parse json", zap.Error(err))
+		return
+	}
 
 	// create generic player response packet
 	playerResp := vbge.PlayerResp{
@@ -49,25 +57,25 @@ func opMove(c *ntcpclient, packet movePacket) {
 	}
 
 	// loop over all player's in the notifygroup and send an update
-	for _, entity := range ngl {
+	for i := range ng {
 		// set the relative posititon for the current opponent
-		playerResp.Location = entity.ARLoc
+		playerResp.Location = *relPos[i]
 
-		dist.GetClient(entity.Player.UserID).Push("game",
-			struct {
-				GRID       string                  `json:"grid"`
-				Type       string                  `json:"type"`
-				Direction  string                  `json:"direction"`
-				PlayerInfo vbge.PlayerResp         `json:"playerinfo"`
-				Loc        *vbge.ARLocation        `json:"loc"`
-				NewLine    *vbge.ViewableMapentity `json:"newline"`
-			}{
-				c.Player.GRenderID,
-				"move",
-				dir,
-				playerResp,
-				entity.Player.Location.ToARLocation(),
-				newLine},
-			c.Log)
+		// marshal response
+		pr, err := json.Marshal(playerResp)
+		if err != nil {
+			c.LogCtx.Error("unable to marshal vbge.PlayerResp", zap.Error(err))
+			return
+		}
+
+		updateDist.Push(ng[i],
+			newUpdate("game",
+				[]byte(`{"grid":"`+c.Player.GRenderID+
+					`","type":"move","direction":"`+dir+`","playerinfo":`+string(pr)+
+					`,"loc":{"isabs":false,"x":`+strconv.Itoa(relPos[i].X)+`,
+					"y":`+strconv.Itoa(relPos[i].Y)+`},"newline":`+string(line)+`}`)),
+			notifyChannelPrivate,
+			nil,
+			c.LogCtx)
 	}
 }

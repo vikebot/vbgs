@@ -15,9 +15,15 @@ type radarResponse struct {
 func opRadar(c *ntcpclient, packet radarPacket) {
 	c.Player.Rl.Radar.Take()
 
-	counter, _ := c.Player.Radar()
+	counter, ng, err := c.Player.Radar()
+	if err != nil {
+		c.Respond(err.Error())
+		return
+	}
 
 	c.RespondObj(&radarResponse{
 		Counter: counter,
 	})
+
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"radar"}`)), notifyChannelGroup, ng, c.LogCtx)
 }

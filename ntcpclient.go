@@ -13,7 +13,7 @@ import (
 
 type ntcpclient struct {
 	Out           io.Writer
-	Log           *zap.Logger
+	LogCtx        *zap.Logger
 	Authenticated bool
 	UserID        int
 	Crypt         *vbcore.CryptoService
@@ -41,7 +41,7 @@ func newNtcpclient(ip net.Addr, w io.Writer, ctx *zap.Logger) *ntcpclient {
 		pureip = addr.IP.String()
 	}
 	return &ntcpclient{
-		Log:     ctx,
+		LogCtx:  ctx,
 		IP:      ip.String(),
 		PureIP:  pureip,
 		Out:     w,
@@ -96,7 +96,7 @@ func newDefaultObjResponse(c *ntcpclient, d interface{}) defaultObjResponse {
 func (c *ntcpclient) MgmtWrite(d interface{}) {
 	buf, err := json.Marshal(d)
 	if err != nil {
-		c.Log.Warn("failed to marshal interface", zap.Error(err))
+		c.LogCtx.Warn("failed to marshal interface", zap.Error(err))
 		return
 	}
 
@@ -107,20 +107,20 @@ func (c *ntcpclient) MgmtWrite(d interface{}) {
 	if c.IsEncrypted && !envDisableCrypt {
 		cipher, err := c.Crypt.EncryptBase64(buf)
 		if err != nil {
-			c.Log.Error("encrypting buffer failed", zap.Error(err))
+			c.LogCtx.Error("encrypting buffer failed", zap.Error(err))
 			return
 		}
 		buf = cipher
 	}
 
-	c.Log.Debug("sent",
+	c.LogCtx.Debug("sent",
 		zap.String("packet", pkt),
 		zap.Uint32("seqnr", c.Pc-c.StartPc))
 
 	buf = append(buf, '\n')
 	_, err = c.Out.Write(buf)
 	if err != nil {
-		c.Log.Warn("sending failed", zap.Error(err))
+		c.LogCtx.Warn("sending failed", zap.Error(err))
 	}
 }
 

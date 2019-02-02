@@ -15,17 +15,16 @@ type environmentResponse struct {
 func opEnvironment(c *ntcpclient, packet environmentPacket) {
 	c.Player.Rl.Environment.Take()
 
-	matrix, ngl := c.Player.Environment()
+	matrix, ng, err := c.Player.Environment()
+
+	if err != nil {
+		c.RespondFmt(err.Error())
+		return
+	}
 
 	c.RespondObj(&environmentResponse{
 		EnvironmentMatrix: matrix,
 	})
 
-	dist.PushGroup("game", ngl.UserIDs(), struct {
-		GRID string `json:"grid"`
-		Type string `json:"type"`
-	}{
-		c.Player.GRenderID,
-		"environment",
-	}, c.Log)
+	updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"environment"}`)), notifyChannelGroup, ng, c.LogCtx)
 }

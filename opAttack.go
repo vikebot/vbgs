@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
+	"go.uber.org/zap"
 )
 
 type attackObj struct {
@@ -21,81 +24,55 @@ type attackResponse struct {
 func opAttack(c *ntcpclient, packet attackPacket) {
 	// c.Player.Rl.Attack.Take()
 	time.Sleep(300 * time.Millisecond)
-
-	health, ngl, err := c.Player.Attack(
+	health, ng, relPos, err := c.Player.Attack(
 		// func onHit
-		func(e *vbge.Player, health int, ngl vbge.NotifyGroupLocated) {
-			dist.PushGroup("game", ngl.UserIDs(), struct {
-				GRID  string `json:"grid"`
-				Type  string `json:"type"`
-				Value int    `json:"health"`
-			}{
-				e.GRenderID,
-				"health",
-				health,
-			}, c.Log)
+		func(e *vbge.Player, health int, ng vbge.NotifyGroup) {
+			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"health","value":`+strconv.Itoa(health)+`}`)), notifyChannelGroup, ng, c.LogCtx)
 		},
 		// func beforeRespawn
-		func(e *vbge.Player, ngl vbge.NotifyGroupLocated) {
-			dist.PushGroup("game", ngl.UserIDs(), struct {
-				GRID string `json:"grid"`
-				Type string `json:"type"`
-			}{
-				e.GRenderID,
-				"death",
-			}, c.Log)
+		func(e *vbge.Player, ng vbge.NotifyGroup) {
+			updateDist.Push(e, newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"death"}`)), notifyChannelGroup, ng, c.LogCtx)
 		},
 		// func afterRespawn
-		func(enemy *vbge.Player, ngl vbge.NotifyGroupLocated) error {
+		func(e *vbge.Player, ng vbge.NotifyGroup) {
 			// create generic player response packet
 			playerResp := vbge.PlayerResp{
-				GRID:          enemy.GRenderID,
-				Health:        enemy.Health.HealthSynced(),
-				CharacterType: enemy.CharacterType,
-				WatchDir:      enemy.WatchDir,
+				GRID:          e.GRenderID,
+				Health:        e.Health.HealthSynced(),
+				CharacterType: e.CharacterType,
+				WatchDir:      e.WatchDir,
 			}
 
-			// Inform the people around the enemies new location, that he has just
-			// spawned.
-			for _, entity := range ngl {
-				if entity.Player.UserID != enemy.UserID {
-					// set current entities location for response packet
-					playerResp.Location = entity.ARLoc
+			for i := range ng {
+				l := e.Location.RelativeFrom(ng[i].Location)
+				if ng[i].UserID != e.UserID {
+					playerResp.Location = *l
 
-					// send notification
-					dist.GetClient(entity.Player.UserID).Push("game", struct {
-						GRID       string          `json:"grid"`
-						Type       string          `json:"type"`
-						PlayerInfo vbge.PlayerResp `json:"playerinfo"`
-					}{
-						enemy.GRenderID,
-						"spawn",
-						playerResp,
-					}, c.Log)
+					// marshal response
+					pr, err := json.Marshal(playerResp)
+					if err != nil {
+						c.LogCtx.Error("unable to marshal vbge.PlayerResp", zap.Error(err))
+						return
+					}
+
+					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"spawn","playerinfo":`+string(pr)+`}`)), notifyChannelPrivate, nil, c.LogCtx)
+				} else {
+					playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, e.UserID, battle, false)
+					if err != nil {
+						return
+					}
+
+					pme, err := json.Marshal(playerMapentity)
+					if err != nil {
+						return
+					}
+
+					updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+e.GRenderID+`","type":"selfspawn", "loc":{"isabs":false,"x":`+strconv.Itoa(l.X)+`,"y":`+strconv.Itoa(l.Y)+`},"playermapentity":`+string(pme)+`}`)), notifyChannelPrivate, nil, c.LogCtx)
 				}
 			}
-
-			// Inform the enemy itself that he has respawned
-			playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, enemy.UserID, battle, false)
-			if err != nil {
-				return err
-			}
-			dist.GetClient(enemy.UserID).Push("game", struct {
-				GRID            string                  `json:"grid"`
-				Type            string                  `json:"type"`
-				Loc             *vbge.ARLocation        `json:"loc"`
-				PlayerMapEntity *vbge.ViewableMapentity `json:"playermapentity"`
-			}{
-				enemy.GRenderID,
-				"selfspawn",
-				enemy.Location.ToARLocation(),
-				playerMapentity,
-			}, c.Log)
-
-			return nil
 		},
 		// func ChangedStats
-		func(p []vbge.Player) {
+		func(p []vbge.Player, ng vbge.NotifyGroup) {
 			var ps playersStats
 
 			for i := range p {
@@ -106,14 +83,17 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 				})
 			}
 
-			dist.PushBroadcast("game", struct {
-				Stats []playerStats
-			}{
-				ps,
-			}, c.Log)
+			statsObj, err := json.Marshal(ps)
+			if err != nil {
+				c.LogCtx.Error("unable to marshal playerStats", zap.Error(err))
+				return
+			}
+
+			updateDist.Push(nil, newUpdate("stats", statsObj), notifyChannelGroup, ng, c.LogCtx)
 		})
 	if err != nil {
 		c.Respond(err.Error())
+		// updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"attack"}`)), notifyChannelGroup, ng, c.LogCtx)
 		return
 	}
 
@@ -121,15 +101,9 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 		Health: health,
 	})
 
-	for _, entity := range ngl {
-		dist.GetClient(entity.Player.UserID).Push("game", struct {
-			GRID string           `json:"grid"`
-			Type string           `json:"type"`
-			Loc  *vbge.ARLocation `json:"loc"`
-		}{
-			c.Player.GRenderID,
-			"attack",
-			entity.ARLoc,
-		}, c.Log)
+	for i := range ng {
+		updateDist.Push(ng[i], newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+
+			`","type":"attack","loc":{"isabs":false,"x":`+strconv.Itoa(relPos[i].X)+`,"y":`+strconv.Itoa(relPos[i].Y)+`}}`)),
+			notifyChannelPrivate, nil, c.LogCtx)
 	}
 }

@@ -29,12 +29,8 @@
 config/*.json
 !config/release-sample.json
 
-vendor/
 # Log files
 vb_localhost_debugging_history.log
 
 # Build files
 vbgs
-
-# Debug files
-debug

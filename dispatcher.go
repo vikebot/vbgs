@@ -37,7 +37,7 @@ func dispatch(c *ntcpclient, data []byte, packet typePacket) {
 	case "agreeconn":
 		// Check if this client has already a agreed connection
 		if err = ntcpRegistry.Put(c); err != nil {
-			log.Warn("multiple connections for same user", zap.Error(err))
+			logctx.Warn("multiple connections for same user", zap.Error(err))
 			c.Respond("Connection already open - Please close any previous connections before initializing a new one.")
 			return
 		}
@@ -46,7 +46,7 @@ func dispatch(c *ntcpclient, data []byte, packet typePacket) {
 		c.Player = battle.Players[c.UserID]
 
 		c.RespondNil()
-		dist.GetClient(c.UserID).PushInfo(true, c.IP, c.SDK, c.SDKLink, c.OS, c.Log)
+		updateDist.PushTypeInfo(c, true)
 		return
 	case "rotate":
 		var rotate rotatePacket
