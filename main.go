@@ -71,7 +71,7 @@ func gsInit() {
 
 func battleInit(joinedPlayers []int) {
 	dir := "config/map"
-	filename := "map.json"
+	filename := "small_map.json"
 
 	file, err := os.Open(path.Join(dir, filename))
 	if err != nil {
