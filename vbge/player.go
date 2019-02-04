@@ -30,7 +30,7 @@ func NewPlayerWithSpawn(userID int, m *MapEntity) (p *Player, err error) {
 	p = &Player{
 		UserID:        userID,
 		Map:           m,
-		GRenderID:     vbcore.FastRandomString(32),
+		GRenderID:     strconv.Itoa(userID),
 		WatchDir:      dirNorth,
 		Health:        NewDefaultHealth(),
 		Rl:            NewOpLimitations(),
