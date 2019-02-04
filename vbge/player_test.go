@@ -488,7 +488,7 @@ func TestPlayerUndefend(t *testing.T) {
 }
 
 func newMapEntityWithPlayers(playerCount int, location *Location, dir string) *MapEntity {
-	mapEntity := NewMapEntity(30, 30)
+	mapEntity := NewMapEntity(31, 31)
 
 	if dir == "" {
 		for i := 1; i < playerCount+1; i++ {
