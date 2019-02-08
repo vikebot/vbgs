@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/vikebot/vbgs/pkg/ntfydistr"
 
@@ -66,10 +67,10 @@ func nwsRun(srv *http.Server) {
 }
 
 func nwsHandler(w http.ResponseWriter, r *http.Request) {
-	wsrqid := vbcore.FastRandomString(32)
+	wsrqid := strings.ToLower(vbcore.FastRandomString(16))
 	c := &nwsclient{
 		WSRqID: wsrqid,
-		Log:    log.With(zap.String("wsrqid", wsrqid)),
+		Log:    log.With(zap.String("wsid", wsrqid)),
 	}
 
 	c.Log.Info("websocket connected", zap.String("ip", r.RemoteAddr))
