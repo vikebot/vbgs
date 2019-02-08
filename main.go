@@ -125,6 +125,7 @@ func main() {
 
 	// init zap logging
 	initLog()
+	defer log.Sync()
 
 	// print version
 	if len(Version) != 0 {
