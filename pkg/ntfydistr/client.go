@@ -43,8 +43,9 @@ func newClient(userID int) *client {
 func (c *client) addSub(cr *subscriber, log *zap.Logger) {
 	// Add subscriber to subs list
 	c.subsSync.Lock()
+	defer c.subsSync.Unlock()
 	c.subs = append(c.subs, cr)
-	c.subsSync.Unlock()
+	log.Debug("adding subscriber to client")
 }
 
 func (c *client) run(stop chan struct{}, log *zap.Logger) {
@@ -107,9 +108,9 @@ func (c *client) dequeueAndSend(log *zap.Logger) {
 				return
 			}
 
+			// prepare specific subscriber for closing
+			log.Debug("subscriber is disconnecting")
 			disconnSubs = append(disconnSubs, i)
-
-			// close channel for specific receiver
 			close(s.stop)
 		}
 
@@ -136,11 +137,7 @@ func (c *client) UserID() int {
 // Notifications are queued and send in regular intervals.
 func (c *client) Sub(w SubscriberWriteFunc, init SubscriberInitFunc, log *zap.Logger) {
 	// Allocate receiver
-	cr := &subscriber{
-		w:    w,
-		stop: make(chan struct{}),
-		log:  log,
-	}
+	cr := newSubscriber(w, make(chan struct{}), log)
 
 	if init != nil {
 		// create dummy client for init of subscriber (so the package caller has
