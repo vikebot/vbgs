@@ -43,6 +43,7 @@ func dispatch(c *ntcpclient, data []byte, packet typePacket) {
 		}
 
 		c.AgreeconnDone = true
+		c.Authenticated = true
 		c.Player = battle.Players[c.UserID]
 
 		c.RespondNil()
