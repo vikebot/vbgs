@@ -66,7 +66,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 				"move",
 				dir,
 				playerResp,
-				entity.Player.Location.ToARLocation(),
+				entity.ARLoc,
 				newLine},
 			c.Log)
 	}
