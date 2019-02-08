@@ -72,7 +72,7 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 		Log:    log.With(zap.String("wsrqid", wsrqid)),
 	}
 
-	c.Log.Info("connected", zap.String("ip", r.RemoteAddr))
+	c.Log.Info("websocket connected", zap.String("ip", r.RemoteAddr))
 
 	ws, err := nwsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -80,7 +80,7 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		c.Log.Info("closed", zap.String("ip", r.RemoteAddr))
+		c.Log.Info("closing physical websocket connection", zap.String("ip", r.RemoteAddr))
 		err = ws.Close()
 		if err != nil {
 			c.Log.Error("error during closing websocket", zap.Error(err))
@@ -125,7 +125,7 @@ func nwsAuthAndValidate(c *nwsclient) error {
 
 	// user is authenticated correctly
 	c.UserID = v.UserID
-	c.Log.Info("authenticated", zap.Int("user_id", v.UserID))
+	c.Log.Info("websocket authenticated and userID resolved", zap.Int("user_id", v.UserID))
 
 	// check if the user's watchtoken was intended for this round
 	if config.Battle.RoundID != v.RoundID {

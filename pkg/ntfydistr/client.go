@@ -45,7 +45,6 @@ func (c *client) addSub(cr *subscriber, log *zap.Logger) {
 	c.subsSync.Lock()
 	defer c.subsSync.Unlock()
 	c.subs = append(c.subs, cr)
-	log.Debug("adding subscriber to client")
 }
 
 func (c *client) run(stop chan struct{}, log *zap.Logger) {
@@ -164,6 +163,7 @@ func (c *client) Sub(w SubscriberWriteFunc, init SubscriberInitFunc, log *zap.Lo
 
 	// add subscriber to the real client's live subscription list
 	c.addSub(cr, log)
+	log.Debug("added new subscriber to client")
 
 	// Block till this subscription stops
 	<-cr.stop
