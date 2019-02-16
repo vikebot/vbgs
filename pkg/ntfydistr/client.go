@@ -82,7 +82,7 @@ func (c *Client) dequeueAndSend(log *zap.Logger) {
 		return
 	}
 
-	// anonymous function to ensure receiversSync unlock even in panics
+	// anonymous function to ensure subsSync unlock even in panics
 	func() {
 		c.subsSync.Lock()
 		defer c.subsSync.Unlock()
