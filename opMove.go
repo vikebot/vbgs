@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
@@ -53,7 +54,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 		// set the relative posititon for the current opponent
 		playerResp.Location = entity.ARLoc
 
-		dist.GetClient(entity.Player.UserID).Push("game",
+		dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game",
 			struct {
 				GRID       string                  `json:"grid"`
 				Type       string                  `json:"type"`

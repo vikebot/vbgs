@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
@@ -33,7 +34,7 @@ func opRotate(c *ntcpclient, packet rotatePacket) {
 	c.RespondNil()
 
 	for _, entity := range ngl {
-		dist.GetClient(entity.Player.UserID).Push("game",
+		dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game",
 			struct {
 				GRID  string           `json:"grid"`
 				Type  string           `json:"type"`

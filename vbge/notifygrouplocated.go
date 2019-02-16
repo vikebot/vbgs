@@ -1,5 +1,7 @@
 package vbge
 
+import "strconv"
+
 // NotifyGroupLocated specifies a NotifyGroup that also includes location
 // information for the specific players.
 type NotifyGroupLocated []*NotifyGroupLocatedEntity
@@ -17,6 +19,15 @@ func (ngl NotifyGroupLocated) UserIDs() (userIDs []int) {
 
 	for i := range ngl {
 		userIDs[i] = ngl[i].Player.UserID
+	}
+	return
+}
+
+func (ngl NotifyGroupLocated) UserStringIDs() (userIDs []string) {
+	userIDs = make([]string, len(ngl))
+
+	for i := range ngl {
+		userIDs[i] = strconv.Itoa(ngl[i].Player.UserID)
 	}
 	return
 }

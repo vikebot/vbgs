@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
@@ -25,7 +26,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 	health, ngl, err := c.Player.Attack(
 		// func onHit
 		func(e *vbge.Player, health int, ngl vbge.NotifyGroupLocated) {
-			dist.PushGroup("game", ngl.UserIDs(), struct {
+			dist.PushGroup("game", ngl.UserStringIDs(), struct {
 				GRID  string `json:"grid"`
 				Type  string `json:"type"`
 				Value int    `json:"health"`
@@ -37,7 +38,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 		},
 		// func beforeRespawn
 		func(e *vbge.Player, ngl vbge.NotifyGroupLocated) {
-			dist.PushGroup("game", ngl.UserIDs(), struct {
+			dist.PushGroup("game", ngl.UserStringIDs(), struct {
 				GRID string `json:"grid"`
 				Type string `json:"type"`
 			}{
@@ -63,7 +64,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 					playerResp.Location = entity.ARLoc
 
 					// send notification
-					dist.GetClient(entity.Player.UserID).Push("game", struct {
+					dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game", struct {
 						GRID       string          `json:"grid"`
 						Type       string          `json:"type"`
 						PlayerInfo vbge.PlayerResp `json:"playerinfo"`
@@ -80,7 +81,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 			if err != nil {
 				return err
 			}
-			dist.GetClient(enemy.UserID).Push("game", struct {
+			dist.GetClient(strconv.Itoa(enemy.UserID)).Push("game", struct {
 				GRID            string                  `json:"grid"`
 				Type            string                  `json:"type"`
 				Loc             *vbge.ARLocation        `json:"loc"`
@@ -122,7 +123,7 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 	})
 
 	for _, entity := range ngl {
-		dist.GetClient(entity.Player.UserID).Push("game", struct {
+		dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game", struct {
 			GRID string           `json:"grid"`
 			Type string           `json:"type"`
 			Loc  *vbge.ARLocation `json:"loc"`

@@ -21,7 +21,7 @@ func opEnvironment(c *ntcpclient, packet environmentPacket) {
 		EnvironmentMatrix: matrix,
 	})
 
-	dist.PushGroup("game", ngl.UserIDs(), struct {
+	dist.PushGroup("game", ngl.UserStringIDs(), struct {
 		GRID string `json:"grid"`
 		Type string `json:"type"`
 	}{

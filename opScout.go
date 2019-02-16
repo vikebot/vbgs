@@ -42,7 +42,7 @@ func opScout(c *ntcpclient, packet scoutPacket) {
 	})
 
 	for _, entity := range ngl {
-		dist.GetClient(entity.Player.UserID).Push("game",
+		dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game",
 			struct {
 				GRID     string           `json:"grid"`
 				Type     string           `json:"type"`

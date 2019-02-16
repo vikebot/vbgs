@@ -21,7 +21,7 @@ func opUndefend(c *ntcpclient, packtet undefendPacket) {
 	}
 	c.RespondNil()
 
-	dist.PushGroup("game", ng.UserIDs(), struct {
+	dist.PushGroup("game", ng.UserStringIDs(), struct {
 		GRID string `json:"grid"`
 		Type string `json:"undefend"`
 	}{

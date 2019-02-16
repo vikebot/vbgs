@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"go.uber.org/zap"
 )
@@ -47,7 +48,7 @@ func dispatch(c *ntcpclient, data []byte, packet typePacket) {
 		c.Player = battle.Players[c.UserID]
 
 		c.RespondNil()
-		dist.GetClient(c.UserID).PushInfo(true, c.IP, c.SDK, c.SDKLink, c.OS, c.Log)
+		dist.GetClient(strconv.Itoa(c.UserID)).PushInfo(true, c.IP, c.SDK, c.SDKLink, c.OS, c.Log)
 		return
 	case "rotate":
 		var rotate rotatePacket
