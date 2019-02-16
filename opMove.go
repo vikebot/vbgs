@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
@@ -28,7 +29,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 		return
 	}
 
-	ng, relPos, err := c.Player.Move(dir)
+	ngl, err := c.Player.Move(dir)
 	if err != nil {
 		c.Respond(err.Error())
 		return
@@ -49,11 +50,11 @@ func opMove(c *ntcpclient, packet movePacket) {
 	}
 
 	// loop over all player's in the notifygroup and send an update
-	for i := range ng {
+	for _, entity := range ngl {
 		// set the relative posititon for the current opponent
-		playerResp.Location = *relPos[i]
+		playerResp.Location = entity.ARLoc
 
-		dist.GetClient(ng[i].UserID).Push("game",
+		dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game",
 			struct {
 				GRID       string                  `json:"grid"`
 				Type       string                  `json:"type"`
@@ -66,7 +67,7 @@ func opMove(c *ntcpclient, packet movePacket) {
 				"move",
 				dir,
 				playerResp,
-				relPos[i].ToARLocation(),
+				entity.ARLoc,
 				newLine},
 			c.Log)
 	}

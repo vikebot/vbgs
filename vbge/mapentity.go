@@ -37,33 +37,67 @@ func NewMapEntity(width, height int) *MapEntity {
 	}
 }
 
-// PInRenderArea returns all the players that are inside the render area
-// around the passend location. Result is returned as a `NotifyGroup`. This
-// function isn't safe for concurrent use.
-func (me *MapEntity) PInRenderArea(l Location) NotifyGroup {
-	startX := vbcore.MaxInt(0, l.X-HrWidth)
-	endX := vbcore.MinInt(MapWidth-1, l.X+HrWidth)
-	startY := vbcore.MaxInt(0, l.Y-HrHeight)
-	endY := vbcore.MinInt(MapHeight-1, l.Y+HrHeight)
+// NewMapEntityFromMap allocates memory for a new map with the size specified by the
+// `width` and `height` parameter and the structure of the given [][]string
+func NewMapEntityFromMap(width, height int, blockMap [][]string) *MapEntity {
+	matrix := make([][]*BlockEntity, height)
+	for i := range matrix {
+		matrix[i] = make([]*BlockEntity, width)
+	}
 
-	inarea := []*Player{}
+	for yi := 0; yi < height; yi++ {
+		for xi := 0; xi < width; xi++ {
+			matrix[yi][xi] = &BlockEntity{
+				Blocktype: blockMap[yi][xi],
+			}
+		}
+	}
+
+	return &MapEntity{
+		Height: height,
+		Width:  width,
+		Matrix: matrix,
+	}
+}
+
+// PInEnclosedArea returns all players with their relative position to l inside
+// the enclosed area. This function isn't safe for concurrent use.
+func (me *MapEntity) PInEnclosedArea(startX, endX, startY, endY int, l *Location) NotifyGroupLocated {
+	var inarea []*NotifyGroupLocatedEntity
 
 	for y := startY; y <= endY; y++ {
 		for x := startX; x <= endX; x++ {
-			if me.Matrix[y][x].HasResident() {
-				inarea = append(inarea, me.Matrix[y][x].Resident)
+			be := me.Matrix[y][x]
+			if !be.HasResident() {
+				continue
 			}
+
+			inarea = append(inarea, &NotifyGroupLocatedEntity{
+				Player: be.Resident,
+				// calculate relative positions to Location `l`
+				ARLoc: l.RelativeFrom(be.Resident.Location).ToARLocation(),
+			})
 		}
 	}
 
 	return inarea
 }
 
-// PInRenderAreaCombined returns all the players that are inside the render
-// area around the passend locations. The minimum rectangle containing both
-// locations is calculated and searched for players. The Result is returned
-// as a `NotifyGroup`. This function isn't safe for concurrent use.
-func (me *MapEntity) PInRenderAreaCombined(oldL *Location, newL *Location) NotifyGroup {
+// PInRenderArea returns all players, with their relative position to l, inside
+// the renderable area around l. This function isn't safe for concurrent use.
+func (me *MapEntity) PInRenderArea(l *Location) NotifyGroupLocated {
+	startX := vbcore.MaxInt(0, l.X-HrWidth)
+	endX := vbcore.MinInt(MapWidth-1, l.X+HrWidth)
+	startY := vbcore.MaxInt(0, l.Y-HrHeight)
+	endY := vbcore.MinInt(MapHeight-1, l.Y+HrHeight)
+
+	return me.PInEnclosedArea(startX, endX, startY, endY, l)
+}
+
+// PInExtendedRenderArea returns all players, with their relative position to
+// newL, inside the extended renderable area around the minimum rectangle
+// containing both oldL and newL. This function isn't safe for concurrent use.
+func (me *MapEntity) PInExtendedRenderArea(oldL *Location, newL *Location) NotifyGroupLocated {
 	startX := vbcore.MinInt(oldL.X-HrWidth, newL.X-HrWidth)
 	startX = vbcore.MaxInt(0, startX)
 
@@ -76,16 +110,7 @@ func (me *MapEntity) PInRenderAreaCombined(oldL *Location, newL *Location) Notif
 	endY := vbcore.MaxInt(oldL.Y+HrHeight, newL.Y+HrHeight)
 	endY = vbcore.MinInt(MapHeight-1, endY)
 
-	inarea := []*Player{}
-	for y := startY; y <= endY; y++ {
-		for x := startX; x <= endX; x++ {
-			if me.Matrix[y][x].HasResident() {
-				inarea = append(inarea, me.Matrix[y][x].Resident)
-			}
-		}
-	}
-
-	return inarea
+	return me.PInEnclosedArea(startX, endX, startY, endY, newL)
 }
 
 // PInMatrix returns true if any player is in the matrix of the given

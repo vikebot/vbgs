@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
@@ -17,6 +18,7 @@ type rotatePacket struct {
 func opRotate(c *ntcpclient, packet rotatePacket) {
 	// c.Player.Rl.Rotate.Take()
 	time.Sleep(500 * time.Millisecond)
+
 	if packet.Obj.Angle == nil {
 		c.Respond("Invalid packet. '.obj.angle' missing")
 		return
@@ -28,11 +30,11 @@ func opRotate(c *ntcpclient, packet rotatePacket) {
 		return
 	}
 
-	ng, relPos := c.Player.Rotate(angle)
+	ngl := c.Player.Rotate(angle)
 	c.RespondNil()
 
-	for i := range ng {
-		dist.GetClient(ng[i].UserID).Push("game",
+	for _, entity := range ngl {
+		dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game",
 			struct {
 				GRID  string           `json:"grid"`
 				Type  string           `json:"type"`
@@ -42,9 +44,8 @@ func opRotate(c *ntcpclient, packet rotatePacket) {
 				c.Player.GRenderID,
 				"rotate",
 				angle,
-				relPos[i].ToARLocation(),
+				entity.ARLoc,
 			},
 			c.Log)
 	}
-
 }

@@ -15,9 +15,7 @@ type healthResponse struct {
 func opHealth(c *ntcpclient, packtet healthPacket) {
 	c.Player.Rl.Health.Take()
 
-	health := c.Player.GetHealth()
-
 	c.RespondObj(&healthResponse{
-		Health: health,
+		Health: c.Player.Health.HealthSynced(),
 	})
 }

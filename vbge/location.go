@@ -51,6 +51,17 @@ func (l *Location) IsInMap() bool {
 		l.Y < MapHeight)
 }
 
+// IsAccessable returns true if the location is accessable defined in primitives.go
+func (l *Location) IsAccessable(m *MapEntity) bool {
+	for _, b := range InaccessableBlocks {
+		if m.Matrix[l.Y][l.X].Blocktype == b {
+			return false
+		}
+	}
+
+	return true
+}
+
 // RelativeFrom returns the relative position from the given
 // player location (pl) => the relative position is from the
 // view of l

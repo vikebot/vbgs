@@ -30,7 +30,7 @@ func NewPlayerWithSpawn(userID int, m *MapEntity) (p *Player, err error) {
 	p = &Player{
 		UserID:        userID,
 		Map:           m,
-		GRenderID:     vbcore.FastRandomString(32),
+		GRenderID:     strconv.Itoa(userID),
 		WatchDir:      dirNorth,
 		Health:        NewDefaultHealth(),
 		Rl:            NewOpLimitations(),
@@ -71,7 +71,7 @@ func NewDebugPlayer(m *MapEntity) *Player {
 }
 
 // Rotate implements https://sdk-wiki.vikebot.com/#rotate
-func (p *Player) Rotate(angle string) (ng NotifyGroup, relativePos []*Location) {
+func (p *Player) Rotate(angle string) (ngl NotifyGroupLocated) {
 	if angle == angleRight {
 		switch p.WatchDir {
 		case dirNorth:
@@ -99,23 +99,15 @@ func (p *Player) Rotate(angle string) (ng NotifyGroup, relativePos []*Location) 
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
-	// calculate the area in which player's need to be informed about this move
-	ng = p.Map.PInRenderArea(*p.Location)
-
-	// calculate relative positions (from the new position of the player) to all
-	// other players inside the notifygroup
-	relPos := make([]*Location, len(ng))
-	for i := range ng {
-		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
-	}
-
-	return ng, relPos
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return p.Map.PInRenderArea(p.Location)
 }
 
 // Move implements https://sdk-wiki.vikebot.com/#move
-func (p *Player) Move(dir string) (ng NotifyGroup, relativePos []*Location, err error) {
+func (p *Player) Move(dir string) (ngl NotifyGroupLocated, err error) {
 	if p.IsDefending {
-		return nil, nil, ErrCantMoveOFDefending
+		return nil, ErrCantMoveOFDefending
 	}
 
 	// make a real value-copy of the location, add the proposed user-direction
@@ -123,7 +115,15 @@ func (p *Player) Move(dir string) (ng NotifyGroup, relativePos []*Location, err 
 	locc := p.Location.DeepCopy()
 	locc.AddDirection(dir)
 	if !locc.IsInMap() {
-		return nil, nil, ErrNoMoveOutOfMap
+		return nil, ErrNoMoveOutOfMap
+	}
+
+	if !locc.IsAccessable(p.Map) {
+		return nil, ErrInaccessable
+	}
+
+	if !locc.IsAccessable(p.Map) {
+		return nil, ErrInaccessable
 	}
 
 	// lock the map
@@ -132,50 +132,50 @@ func (p *Player) Move(dir string) (ng NotifyGroup, relativePos []*Location, err 
 
 	// check whether the proposed field has a resident or not
 	if p.Map.Matrix[locc.Y][locc.X].HasResident() {
-		return nil, nil, ErrHasResident
+		return nil, ErrHasResident
 	}
 
-	// proposed field has no resident -> join it and leave the old one
-	p.Map.Matrix[locc.Y][locc.X].JoinArea(p)
+	// proposed field has no resident -> leave old and join new
 	p.Map.Matrix[p.Location.Y][p.Location.X].LeaveArea()
-
-	// calculate the area in which player's need to be informed about this move
-	ng = p.Map.PInRenderAreaCombined(p.Location, locc)
+	p.Map.Matrix[locc.Y][locc.X].JoinArea(p)
 
 	// set the new player's location ref to his new location
+	oldL := p.Location
 	p.Location = locc
 
-	// calculate relative positions (from the new position of the player) to all
-	// other players inside the notifygroup
-	relPos := make([]*Location, len(ng))
-	for i := range ng {
-		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
-	}
-
-	return ng, relPos, nil
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return p.Map.PInExtendedRenderArea(oldL, p.Location), nil
 }
 
 // Radar implements https://sdk-wiki.vikebot.com/#radar
-func (p *Player) Radar() (playerCount int, ng NotifyGroup, err error) {
-
-	pCount := 0
+func (p *Player) Radar() (playerCount int, ngl NotifyGroupLocated) {
+	// calculate enclosing
+	startX := vbcore.MaxInt(0, p.Location.X-radarRadius)
+	endX := vbcore.MinInt(MapWidth, p.Location.X+radarRadius)
+	startY := vbcore.MaxInt(0, p.Location.Y-radarRadius)
+	endY := vbcore.MinInt(MapHeight, p.Location.Y+radarRadius)
 
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
-	for y := vbcore.MaxInt(p.Location.Y-radarRadius, 0); y < vbcore.MinInt(p.Location.Y+radarRadius, MapHeight); y++ {
-		for x := vbcore.MaxInt(p.Location.X-radarRadius, 0); x < vbcore.MinInt(p.Location.X+radarRadius, MapWidth); x++ {
+	// calculate player count
+	pCount := 0
+	for y := startY; y < endY; y++ {
+		for x := startX; x < endX; x++ {
 			if p.Map.Matrix[y][x].HasResident() {
 				pCount++
 			}
 		}
 	}
 
-	return pCount, p.Map.PInRenderArea(*p.Location), nil
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return pCount, p.Map.PInRenderArea(p.Location)
 }
 
 // Scout implements https://sdk-wiki.vikebot.com/#scout
-func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, relativePos []*Location, err error) {
+func (p *Player) Scout(distance int) (playerCount int, ngl NotifyGroupLocated) {
 	pCount := 0
 
 	p.Map.SyncRoot.Lock()
@@ -224,20 +224,13 @@ func (p *Player) Scout(distance int) (playerCount int, ng NotifyGroup, relativeP
 		}
 	}
 
-	ng = p.Map.PInRenderArea(*p.Location)
-
-	// calculate relative positions (from the new position of the player) to all
-	// other players inside the notifygroup
-	relPos := make([]*Location, len(ng))
-	for i := range ng {
-		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
-	}
-
-	return pCount, ng, relPos, nil
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return pCount, p.Map.PInRenderArea(p.Location)
 }
 
 // Environment implements https://sdk-wiki.vikebot.com/#environment
-func (p *Player) Environment() (blocktypeMatrix [][]string, ng NotifyGroup, err error) {
+func (p *Player) Environment() (blocktypeMatrix [][]string, ngl NotifyGroupLocated) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
@@ -259,11 +252,13 @@ func (p *Player) Environment() (blocktypeMatrix [][]string, ng NotifyGroup, err 
 		}
 	}
 
-	return matrix, p.Map.PInRenderArea(*p.Location), nil
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return matrix, p.Map.PInRenderArea(p.Location)
 }
 
 // Watch implements https://sdk-wiki.vikebot.com/#watch
-func (p *Player) Watch() (playerhealthMatrix [][]int, ng NotifyGroup, err error) {
+func (p *Player) Watch() (playerhealthMatrix [][]int, ngl NotifyGroupLocated) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
@@ -311,43 +306,42 @@ func (p *Player) Watch() (playerhealthMatrix [][]int, ng NotifyGroup, err error)
 		}
 	}
 
-	return matrix, p.Map.PInRenderArea(*p.Location), nil
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return matrix, p.Map.PInRenderArea(p.Location)
 }
 
 // PlayerHitEvent is called when a player has been hit
-type PlayerHitEvent func(p *Player, healthAfterHit int, ng NotifyGroup)
+type PlayerHitEvent func(p *Player, healthAfterHit int, ngl NotifyGroupLocated)
 
 // DeathEvent is called when a player has died
-type DeathEvent func(p *Player, ng NotifyGroup)
+type DeathEvent func(p *Player, ngl NotifyGroupLocated)
 
 // SpawnEvent is called when a player has spawned
-type SpawnEvent func(p *Player, ng NotifyGroup)
+type SpawnEvent func(p *Player, ngl NotifyGroupLocated) error
 
 // StatsEvent is called when the stats of a player
 // has changed
 type StatsEvent func(p []Player)
 
 // Attack implements https://sdk-wiki.vikebot.com/#attack
-func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRespawn SpawnEvent, changedStats StatsEvent) (enemyHealth int, ng NotifyGroup, relativePos []*Location, err error) {
+func (p *Player) Attack(onHit PlayerHitEvent, onDeath DeathEvent, onSpawn SpawnEvent, changedStats StatsEvent) (enemyHealth int, ngl NotifyGroupLocated, err error) {
 	p.Map.SyncRoot.Lock()
 	defer p.Map.SyncRoot.Unlock()
 
-	l := p.Location.DeepCopy()
-	l.AddDirection(p.WatchDir)
+	// Get enemy location
+	enemyLoc := p.Location.DeepCopy()
+	enemyLoc.AddDirection(p.WatchDir)
 
-	ng = p.Map.PInRenderArea(*p.Location)
-	relPos := make([]*Location, len(ng))
-	for i := range ng {
-		relPos[i] = p.Location.RelativeFrom(ng[i].Location)
+	// Check if it's in the map
+	if !enemyLoc.IsInMap() {
+		return 0, nil, ErrOutOfMap
 	}
 
-	if !l.IsInMap() {
-		return 0, ng, relPos, ErrOutOfMap
-	}
-
-	be := p.Map.Matrix[l.Y][l.X]
+	// Check if block entity even has a resident
+	be := p.Map.Matrix[enemyLoc.Y][enemyLoc.X]
 	if !be.HasResident() {
-		return 0, ng, relPos, ErrNoEnemy
+		return 0, nil, ErrNoEnemy
 	}
 
 	// Safe enemy pointer because we eventually delete him from the map
@@ -360,64 +354,74 @@ func (p *Player) Attack(onHit PlayerHitEvent, beforeRespawn DeathEvent, afterRes
 	enemy.Health.TakeDamage(enemy)
 	health = enemy.Health.internalValue
 
-	// inform all players that the enemy has been hit
-	beforeRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
-	onHit(enemy, health, beforeRespawnNG)
+	// Inform all players that the enemy has been hit
+	beforeRespawnNGL := enemy.Map.PInRenderArea(enemy.Location)
+	onHit(enemy, health, beforeRespawnNGL)
 
-	// see if we killed him
+	// Check if p killed the enemy
 	if health < 1 {
+		// set health to zero to avoid returning negative health values
+		health = 0
+
+		// increase kill and death counters for p and enemy respectively
 		p.Kills++
 		enemy.Deaths++
+		enemy.Health.Unlock()
 
-		// notify that the stats has changed
-		// copy the players so the KD is save for
-		// the stats TODO: find out if neccessary
+		// Notify that the stats has changed. Copy the players so the KD is
+		// save for the stats. TODO: find out if neccessary
 		var players = []Player{*p, *enemy}
 		go func() {
 			changedStats(players)
 		}()
 
-		enemy.Health.Unlock()
+		// Notify all players that the enemy died
+		onDeath(enemy, beforeRespawnNGL)
 
-		beforeRespawn(enemy, beforeRespawnNG)
+		// Try to respawn the enemy
 		err = enemy.Respawn()
 		if err != nil {
-			return 0, ng, relPos, err
+			return 0, nil, err
 		}
-		afterRespawnNG := enemy.Map.PInRenderArea(*enemy.Location)
-		afterRespawn(enemy, afterRespawnNG)
 
-		health = 0
+		// Inform the people around the enemies new location, that he has just
+		// spawned.
+		afterRespawnNG := enemy.Map.PInRenderArea(enemy.Location)
+		err = onSpawn(enemy, afterRespawnNG)
+		if err != nil {
+			return 0, nil, err
+		}
 	} else {
 		enemy.Health.Unlock()
 	}
 
-	return health, ng, relPos, nil
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return health, p.Map.PInRenderArea(p.Location), nil
 }
 
 // Defend implements https://sdk-wiki.vikebot.com/#defend-and-undefend
-func (p *Player) Defend() (ng NotifyGroup, err error) {
+func (p *Player) Defend() (ngl NotifyGroupLocated, err error) {
 	if p.IsDefending {
 		return nil, ErrAlreadyDef
 	}
 	p.IsDefending = true
 
-	return p.Map.PInRenderArea(*p.Location), nil
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return p.Map.PInRenderArea(p.Location), nil
 }
 
 // Undefend implements https://sdk-wiki.vikebot.com/#defend-and-undefend
-func (p *Player) Undefend() (ng NotifyGroup, err error) {
+func (p *Player) Undefend() (ngl NotifyGroupLocated, err error) {
 	if !p.IsDefending {
 		return nil, ErrAlreadyUndef
 	}
 	p.IsDefending = false
 
-	return p.Map.PInRenderArea(*p.Location), nil
-}
-
-// GetHealth returns the health as an int value of a player
-func (p *Player) GetHealth() (health int) {
-	return p.Health.HealthSynced()
+	// find out which players need to be informed about this action and their
+	// relative positions to us
+	return p.Map.PInRenderArea(p.Location), nil
 }
 
 // Spawn places the player randomly on the map as long as the location doesn't
@@ -433,9 +437,11 @@ func (p *Player) Spawn() error {
 		}
 
 		// Check whether there already is a player or not
-		var empty bool
-		if empty = !p.Map.Matrix[loc.Y][loc.X].HasResident(); empty {
-			// If the field is empty we place the player
+		empty := !p.Map.Matrix[loc.Y][loc.X].HasResident()
+		isWater := p.Map.Matrix[loc.Y][loc.X].Blocktype == blockWater
+
+		if empty && !isWater {
+			// If the field is empty and not water we place the player
 			p.Map.Matrix[loc.Y][loc.X].JoinArea(p)
 			p.Location = &loc
 			p.Health = NewDefaultHealth()

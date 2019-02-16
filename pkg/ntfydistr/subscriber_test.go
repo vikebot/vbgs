@@ -18,53 +18,66 @@ func newTestLog() *zap.Logger {
 	return l
 }
 
+type receiver struct {
+	w func([]byte) (bool, error)
+}
+
+func (r *receiver) Init(c *Client) {}
+func (r *receiver) Write(b []byte) (bool, error) {
+	return r.w(b)
+}
+
+func funcToReceiver(w func([]byte) (bool, error)) *receiver {
+	return &receiver{w}
+}
+
 func Test_newSubscriber(t *testing.T) {
-	swf := func(notf []byte) (disconn bool, err error) {
+	r := funcToReceiver(func(notf []byte) (disconn bool, err error) {
 		return true, errors.New("custom test error")
-	}
+	})
 	stop := make(chan struct{})
 	log := newTestLog()
 
-	s := newSubscriber(swf, stop, log)
+	s := newSubscriber(r, stop, log)
 	assert.Equal(t, stop, s.stop)
 	assert.Equal(t, log, s.log)
 
-	disconn, err := s.w([]byte{})
+	disconn, err := s.r.Write(nil)
 	assert.NotNil(t, err)
 	assert.Equal(t, "custom test error", err.Error())
 	assert.Equal(t, true, disconn)
 }
 
 func newTestSub() *subscriber {
-	swf := func(notf []byte) (disconn bool, err error) {
+	r := funcToReceiver(func(notf []byte) (disconn bool, err error) {
 		return true, errors.New("custom test error")
-	}
+	})
 	stop := make(chan struct{})
 	log := newTestLog()
 
-	return newSubscriber(swf, stop, log)
+	return newSubscriber(r, stop, log)
 }
 
 func Test_subscriber_Send(t *testing.T) {
 	tests := []struct {
 		name             string
-		swf              SubscriberWriteFunc
+		r                Receiver
 		wantDisconnected bool
 	}{
-		{"should be ok", func(_ []byte) (bool, error) {
+		{"should be ok", funcToReceiver(func(_ []byte) (bool, error) {
 			return false, nil
-		}, false},
-		{"should be disconnected", func(_ []byte) (bool, error) {
+		}), false},
+		{"should be disconnected", funcToReceiver(func(_ []byte) (bool, error) {
 			return true, errors.New("pls disconnect")
-		}, true},
-		{"should be disconnected", func(_ []byte) (bool, error) {
+		}), true},
+		{"should be disconnected", funcToReceiver(func(_ []byte) (bool, error) {
 			return false, errors.New("pls disconnect")
-		}, false},
+		}), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := newTestSub()
-			s.w = tt.swf
+			s.r = tt.r
 
 			disc := s.Send([]byte{}, 0)
 			assert.Equal(t, tt.wantDisconnected, disc)

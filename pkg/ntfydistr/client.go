@@ -7,47 +7,36 @@ import (
 	"time"
 
 	"github.com/eapache/queue"
-	"github.com/vikebot/vbcore"
 	"go.uber.org/zap"
 )
 
 // Client represents a single entity responsible for managing notifications to
 // a specific user. A Client can hold multiple subscribers (e.g. multiple
 // receivers for the user's events.
-type Client interface {
-	UserID() int
-	Sub(w SubscriberWriteFunc, init SubscriberInitFunc, log *zap.Logger)
-	Push(notificationType string, notification interface{}, log *zap.Logger)
-	PushChat(msg string, sev Severity, log *zap.Logger)
-	PushChatPrefixed(prefix, msg string, sev Severity, log *zap.Logger)
-	PushInitialState(props map[string]string, user *vbcore.SafeUser, log *zap.Logger)
-	PushInfo(established bool, ip, sdk, sdkLink, os string, log *zap.Logger)
-}
-
-type client struct {
-	userID   int
+type Client struct {
+	userID   string
 	q        *queue.Queue
 	qSync    sync.Mutex
 	subs     []*subscriber
 	subsSync sync.Mutex
 }
 
-func newClient(userID int) *client {
-	return &client{
+func newClient(userID string) *Client {
+	return &Client{
 		userID: userID,
 		q:      queue.New(),
 		subs:   make([]*subscriber, 0),
 	}
 }
 
-func (c *client) addSub(cr *subscriber, log *zap.Logger) {
+func (c *Client) addSub(cr *subscriber, log *zap.Logger) {
 	// Add subscriber to subs list
 	c.subsSync.Lock()
+	defer c.subsSync.Unlock()
 	c.subs = append(c.subs, cr)
-	c.subsSync.Unlock()
 }
 
-func (c *client) run(stop chan struct{}, log *zap.Logger) {
+func (c *Client) run(stop chan struct{}, log *zap.Logger) {
 	log.Debug("starting client notification runner")
 
 	// create ticker for update interval
@@ -64,7 +53,7 @@ func (c *client) run(stop chan struct{}, log *zap.Logger) {
 	}
 }
 
-func (c *client) dequeueAndSend(log *zap.Logger) {
+func (c *Client) dequeueAndSend(log *zap.Logger) {
 	// local buffer for notifications
 	var notfs []*event
 
@@ -93,7 +82,7 @@ func (c *client) dequeueAndSend(log *zap.Logger) {
 		return
 	}
 
-	// anonymous function to ensure receiversSync unlock even in panics
+	// anonymous function to ensure subsSync unlock even in panics
 	func() {
 		c.subsSync.Lock()
 		defer c.subsSync.Unlock()
@@ -107,9 +96,9 @@ func (c *client) dequeueAndSend(log *zap.Logger) {
 				return
 			}
 
+			// prepare specific subscriber for closing
+			log.Debug("subscriber is disconnecting")
 			disconnSubs = append(disconnSubs, i)
-
-			// close channel for specific receiver
 			close(s.stop)
 		}
 
@@ -125,7 +114,7 @@ func (c *client) dequeueAndSend(log *zap.Logger) {
 }
 
 // UserID returns the user id of the user this client represents.
-func (c *client) UserID() int {
+func (c *Client) UserID() string {
 	return c.userID
 }
 
@@ -134,39 +123,34 @@ func (c *client) UserID() int {
 // SubscriberWriteFunc returns an error and the disconnected return-value
 // indicates that this error was caused by a disconnect of the remote party.
 // Notifications are queued and send in regular intervals.
-func (c *client) Sub(w SubscriberWriteFunc, init SubscriberInitFunc, log *zap.Logger) {
+func (c *Client) Sub(r Receiver, log *zap.Logger) {
 	// Allocate receiver
-	cr := &subscriber{
-		w:    w,
-		stop: make(chan struct{}),
-		log:  log,
-	}
+	cr := newSubscriber(r, make(chan struct{}), log)
 
-	if init != nil {
-		// create dummy client for init of subscriber (so the package caller has
-		// the same interface for sending updates during the init as later
-		dummy := newClient(c.userID)
+	// create dummy client for init of subscriber (so the package caller has
+	// the same interface for sending updates during the init as later
+	dummy := newClient(c.userID)
 
-		// call init callback with dummy. The subscriber can push everything he
-		// wants into the dummy's internal queue-buffer. It won't be dequeued,
-		// because noone ever called `run` on the dummy Client.
-		init(dummy)
+	// call init callback with dummy. The subscriber can push everything he
+	// wants into the dummy's internal queue-buffer. It won't be dequeued,
+	// because noone ever called `run` on the dummy Client.
+	r.Init(dummy)
 
-		// in order to send the collected events back to the "real" subscriber
-		// we subscribe him to the dummy's event notifications and perform a single
-		// dequeueAndSend round
-		dummy.addSub(cr, log)
-		dummy.dequeueAndSend(log)
+	// in order to send the collected events back to the "real" subscriber
+	// we subscribe him to the dummy's event notifications and perform a single
+	// dequeueAndSend round
+	dummy.addSub(cr, log)
+	dummy.dequeueAndSend(log)
 
-		// check if the subscriber already left. if so don't add him to the real
-		// Client's live subscriber
-		if len(dummy.subs) == 0 {
-			return
-		}
+	// check if the subscriber already left. if so don't add him to the real
+	// Client's live subscriber
+	if len(dummy.subs) == 0 {
+		return
 	}
 
 	// add subscriber to the real client's live subscription list
 	c.addSub(cr, log)
+	log.Debug("added new subscriber to client")
 
 	// Block till this subscription stops
 	<-cr.stop
@@ -178,7 +162,7 @@ func (c *client) Sub(w SubscriberWriteFunc, init SubscriberInitFunc, log *zap.Lo
 // []byte are queued in an internal system and will
 // eventually get sent in the next update tick (typically every 20ms). The
 // method is safe for concurrent use.
-func (c *client) Push(notificationType string, notification interface{}, log *zap.Logger) {
+func (c *Client) Push(notificationType string, notification interface{}, log *zap.Logger) {
 	if c == nil {
 		log.Warn("ntfydistr.Client: client is nil")
 		return
@@ -207,14 +191,14 @@ func (c *client) Push(notificationType string, notification interface{}, log *za
 
 // PushChat makes it convient to send the message with it's severity level and
 // the default prefix to the client. The method is safe for concurrent use.
-func (c *client) PushChat(msg string, sev Severity, log *zap.Logger) {
+func (c *Client) PushChat(msg string, sev Severity, log *zap.Logger) {
 	c.PushChatPrefixed(defaultChatPrefix, msg, sev, log)
 }
 
 // PushChatPrefixed makes it convient to send the message with it's severity
 // level and the defined prefix to the client. The method is safe for
 // concurrent use.
-func (c *client) PushChatPrefixed(prefix, msg string, sev Severity, log *zap.Logger) {
+func (c *Client) PushChatPrefixed(prefix, msg string, sev Severity, log *zap.Logger) {
 	c.Push("CHAT", struct {
 		Prefix   string   `json:"prefix"`
 		Msg      string   `json:"msg"`
@@ -222,14 +206,9 @@ func (c *client) PushChatPrefixed(prefix, msg string, sev Severity, log *zap.Log
 	}{prefix, msg, sev}, log)
 }
 
-// PushInitialState makes it convenient to send the initial state (properties
-// and user data) to a client. The method is safe for concurrent use.
-func (c *client) PushInitialState(props map[string]string, user *vbcore.SafeUser, log *zap.Logger) {
-	c.pushInitialStateProps(props, log)
-	c.pushInitialStateUser(user, log)
-}
-
-func (c *client) pushInitialStateProps(props map[string]string, log *zap.Logger) {
+// PushInitialState makes it convenient to send the initial state (properties)
+// to a client. The method is safe for concurrent use.
+func (c *Client) PushInitialState(props map[string]string, log *zap.Logger) {
 	for k, v := range props {
 		c.Push("FLAG", struct {
 			Key   string `json:"key"`
@@ -238,26 +217,10 @@ func (c *client) pushInitialStateProps(props map[string]string, log *zap.Logger)
 	}
 }
 
-func (c *client) pushInitialStateUser(user *vbcore.SafeUser, log *zap.Logger) {
-	type objUser struct {
-		Name       string `json:"name"`
-		Username   string `json:"username"`
-		Picture    string `json:"picture"`
-		Permission string `json:"permission"`
-	}
-	type obj struct {
-		User *objUser `json:"user"`
-	}
-
-	c.Push("USERINFO", &obj{
-		User: &objUser{user.Name, user.Username, "", user.PermissionString},
-	}, log)
-}
-
 // PushInfo makes it convenient to send info data (like ip, used sdk, os,
 // established indicator, etc.) to a client. The method is safe for concurrent
 // use.
-func (c *client) PushInfo(established bool, ip, sdk, sdkLink, os string, log *zap.Logger) {
+func (c *Client) PushInfo(established bool, ip, sdk, sdkLink, os string, log *zap.Logger) {
 	type conn struct {
 		Established bool   `json:"established"`
 		IP          string `json:"ip"`

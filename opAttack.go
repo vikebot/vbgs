@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/vikebot/vbgs/vbge"
@@ -21,10 +22,11 @@ type attackResponse struct {
 func opAttack(c *ntcpclient, packet attackPacket) {
 	// c.Player.Rl.Attack.Take()
 	time.Sleep(300 * time.Millisecond)
-	health, ng, relPos, err := c.Player.Attack(
+
+	health, ngl, err := c.Player.Attack(
 		// func onHit
-		func(e *vbge.Player, health int, ng vbge.NotifyGroup) {
-			dist.PushGroup("game", ng.UserIDs(), struct {
+		func(e *vbge.Player, health int, ngl vbge.NotifyGroupLocated) {
+			dist.PushGroup("game", ngl.UserStringIDs(), struct {
 				GRID  string `json:"grid"`
 				Type  string `json:"type"`
 				Value int    `json:"health"`
@@ -35,8 +37,8 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 			}, c.Log)
 		},
 		// func beforeRespawn
-		func(e *vbge.Player, ng vbge.NotifyGroup) {
-			dist.PushGroup("game", ng.UserIDs(), struct {
+		func(e *vbge.Player, ngl vbge.NotifyGroupLocated) {
+			dist.PushGroup("game", ngl.UserStringIDs(), struct {
 				GRID string `json:"grid"`
 				Type string `json:"type"`
 			}{
@@ -45,48 +47,53 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 			}, c.Log)
 		},
 		// func afterRespawn
-		func(e *vbge.Player, ng vbge.NotifyGroup) {
+		func(enemy *vbge.Player, ngl vbge.NotifyGroupLocated) error {
 			// create generic player response packet
 			playerResp := vbge.PlayerResp{
-				GRID:          e.GRenderID,
-				Health:        e.Health.HealthSynced(),
-				CharacterType: e.CharacterType,
-				WatchDir:      e.WatchDir,
+				GRID:          enemy.GRenderID,
+				Health:        enemy.Health.HealthSynced(),
+				CharacterType: enemy.CharacterType,
+				WatchDir:      enemy.WatchDir,
 			}
 
-			for i := range ng {
-				l := e.Location.RelativeFrom(ng[i].Location)
-				if ng[i].UserID != e.UserID {
-					playerResp.Location = *l
+			// Inform the people around the enemies new location, that he has just
+			// spawned.
+			for _, entity := range ngl {
+				if entity.Player.UserID != enemy.UserID {
+					// set current entities location for response packet
+					playerResp.Location = entity.ARLoc
 
-					dist.GetClient(ng[i].UserID).Push("game", struct {
+					// send notification
+					dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game", struct {
 						GRID       string          `json:"grid"`
 						Type       string          `json:"type"`
 						PlayerInfo vbge.PlayerResp `json:"playerinfo"`
 					}{
-						e.GRenderID,
+						enemy.GRenderID,
 						"spawn",
 						playerResp,
 					}, c.Log)
-				} else {
-					playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, e.UserID, battle, false)
-					if err != nil {
-						return
-					}
-
-					dist.GetClient(ng[i].UserID).Push("game", struct {
-						GRID            string                  `json:"grid"`
-						Type            string                  `json:"type"`
-						Loc             *vbge.ARLocation        `json:"loc"`
-						PlayerMapEntity *vbge.ViewableMapentity `json:"playermapentity"`
-					}{
-						e.GRenderID,
-						"selfspawn",
-						l.ToARLocation(),
-						playerMapentity,
-					}, c.Log)
 				}
 			}
+
+			// Inform the enemy itself that he has respawned
+			playerMapentity, err := vbge.GetViewableMapentity(vbge.RenderWidth, vbge.RenderHeight, enemy.UserID, battle, false)
+			if err != nil {
+				return err
+			}
+			dist.GetClient(strconv.Itoa(enemy.UserID)).Push("game", struct {
+				GRID            string                  `json:"grid"`
+				Type            string                  `json:"type"`
+				Loc             *vbge.ARLocation        `json:"loc"`
+				PlayerMapEntity *vbge.ViewableMapentity `json:"playermapentity"`
+			}{
+				enemy.GRenderID,
+				"selfspawn",
+				enemy.Location.ToARLocation(),
+				playerMapentity,
+			}, c.Log)
+
+			return nil
 		},
 		// func ChangedStats
 		func(p []vbge.Player) {
@@ -108,7 +115,6 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 		})
 	if err != nil {
 		c.Respond(err.Error())
-		// updateDist.Push(c.Player, newUpdate("game", []byte(`{"grid":"`+c.Player.GRenderID+`","type":"attack"}`)), notifyChannelGroup, ng, c.LogCtx)
 		return
 	}
 
@@ -116,15 +122,15 @@ func opAttack(c *ntcpclient, packet attackPacket) {
 		Health: health,
 	})
 
-	for i := range ng {
-		dist.GetClient(ng[i].UserID).Push("game", struct {
+	for _, entity := range ngl {
+		dist.GetClient(strconv.Itoa(entity.Player.UserID)).Push("game", struct {
 			GRID string           `json:"grid"`
 			Type string           `json:"type"`
 			Loc  *vbge.ARLocation `json:"loc"`
 		}{
 			c.Player.GRenderID,
 			"attack",
-			relPos[i].ToARLocation(),
+			entity.ARLoc,
 		}, c.Log)
 	}
 }

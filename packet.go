@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"go.uber.org/zap"
 )
@@ -54,12 +55,23 @@ func packetHandler(c *ntcpclient, data []byte) {
 	c.CurType = *packet.Type
 
 	// Check if the login process isn't finished but the user tries to send another packet
-	if (!c.LoginDone && *packet.Type != "login") &&
-		(!c.ClienthelloDone && *packet.Type != "clienthello") &&
-		(!c.AgreeconnDone && *packet.Type != "agreeconn") {
-		c.Respond("You aren't allowed to send any packet type previous to a successful login")
-		return
+	if !c.Authenticated {
+		notBefore := "You aren't allowed to send any packet type previous to a successful %q"
+
+		if !c.LoginDone && *packet.Type != "login" {
+			c.Respond(fmt.Sprintf(notBefore, "login"))
+			return
+		}
+		if c.LoginDone && !c.ClienthelloDone && *packet.Type != "clienthello" {
+			c.Respond(fmt.Sprintf(notBefore, "clienthello"))
+			return
+		}
+		if c.LoginDone && c.ClienthelloDone && !c.AgreeconnDone && *packet.Type != "agreeconn" {
+			c.Respond(fmt.Sprintf(notBefore, "agreeconn"))
+			return
+		}
 	}
+
 	// Check if client has previously sent packets that are only allowed once
 	if (c.LoginDone && *packet.Type == "login") ||
 		(c.ClienthelloDone && *packet.Type == "clienthello") ||

@@ -4,6 +4,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/vikebot/vbgs/pkg/ntfydistr"
 
@@ -66,13 +68,13 @@ func nwsRun(srv *http.Server) {
 }
 
 func nwsHandler(w http.ResponseWriter, r *http.Request) {
-	wsrqid := vbcore.FastRandomString(32)
+	wsrqid := strings.ToLower(vbcore.FastRandomString(16))
 	c := &nwsclient{
 		WSRqID: wsrqid,
-		Log:    log.With(zap.String("wsrqid", wsrqid)),
+		Log:    log.With(zap.String("wsid", wsrqid)),
 	}
 
-	c.Log.Info("connected", zap.String("ip", r.RemoteAddr))
+	c.Log.Info("websocket connected", zap.String("ip", r.RemoteAddr))
 
 	ws, err := nwsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -80,7 +82,7 @@ func nwsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		c.Log.Info("closed", zap.String("ip", r.RemoteAddr))
+		c.Log.Info("closing physical websocket connection", zap.String("ip", r.RemoteAddr))
 		err = ws.Close()
 		if err != nil {
 			c.Log.Error("error during closing websocket", zap.Error(err))
@@ -125,7 +127,7 @@ func nwsAuthAndValidate(c *nwsclient) error {
 
 	// user is authenticated correctly
 	c.UserID = v.UserID
-	c.Log.Info("authenticated", zap.Int("user_id", v.UserID))
+	c.Log.Info("websocket authenticated and userID resolved", zap.Int("user_id", v.UserID))
 
 	// check if the user's watchtoken was intended for this round
 	if config.Battle.RoundID != v.RoundID {
@@ -136,90 +138,95 @@ func nwsAuthAndValidate(c *nwsclient) error {
 		return c.WriteStr("Unexpected watchtoken. Maybe your round is already over?")
 	}
 
-	// subscribe authenticated client
-	nwsSub(c)
-	return nil
-}
-
-func nwsSub(c *nwsclient) {
 	// subscribe websocket connection for all notifications to this user and
 	// send them as long as err isn't a disconnect from the remote websocket.
 	// Also send all initial informations needed by this specific subscriber,
 	// as map properties, etc.
-	dist.GetClient(c.UserID).Sub(func(notf []byte) (disconnected bool, err error) {
-		// write provided notification to the websocket connection
-		err = c.Write(notf)
-		if err == nil {
-			return
-		}
-
-		// check if the remote party disconnected
-		if _, ok := err.(*net.OpError); ok || websocket.IsUnexpectedCloseError(err) {
-			return true, err
-		}
-
-		// unknown error -> just return it
-		return false, err
-	}, func(initClient ntfydistr.Client) {
-		// Start the initialization of the current subscriber
-		c.Log.Debug("initing nwsclient subscription for user")
-
-		// Construct necessary primitives
-		var player = battle.Players[initClient.UserID()]
-		viewableMapsize := vbge.Location{
-			X: vbge.RenderWidth,
-			Y: vbge.RenderHeight,
-		}
-		playerMapentity, err := vbge.GetViewableMapentity(viewableMapsize.X, viewableMapsize.Y, initClient.UserID(), battle, true)
-		if err != nil {
-			c.Log.Error("failed getting mapentity", zap.Error(err))
-			return
-		}
-
-		// Send the initial game information
-		c.Log.Debug("sending init package to nwsclient")
-		initClient.Push("initial", struct {
-			TotalMapsize    vbge.Location        `json:"totalmapsize"`
-			ViewableMapsize vbge.Location        `json:"viewablemapsize"`
-			MaxHealth       int                  `json:"maxhealth"`
-			PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
-			Startplayer     string               `json:"startplayer"`
-		}{
-			TotalMapsize: vbge.Location{
-				X: vbge.MapWidth,
-				Y: vbge.MapHeight,
-			},
-			ViewableMapsize: viewableMapsize,
-			MaxHealth:       vbge.MaxHealth,
-			Startplayer:     player.GRenderID,
-			PlayerMapentity: playerMapentity.Matrix,
-		}, c.Log)
-
-		// Set the client's debug flag
-		c.Log.Debug("sending debug flag to nwsclient", zap.Bool("debug", config.Network.WS.Flags.Debug))
-		initClient.Push("flag", struct {
-			Name  string `json:"name"`
-			State bool   `json:"state"`
-		}{
-			"debug",
-			config.Network.WS.Flags.Debug,
-		}, c.Log)
-
-		// Send the current state fo the stats
-		if config.Network.WS.Flags.Stats {
-			c.Log.Debug("sending stats to nwsclient")
-
-			stats, err := getPlayersStats()
-			if err != nil {
-				c.Log.Error("failed getting stats", zap.Error(err))
-				return
-			}
-
-			initClient.Push("stats", struct {
-				Stats playersStats `json:"stats"`
-			}{
-				stats,
-			}, c.Log)
-		}
+	dist.GetClient(strconv.Itoa(c.UserID)).Sub(ntfyWebsocketReceiver{
+		c: c,
 	}, c.Log)
+	return nil
+}
+
+type ntfyWebsocketReceiver struct {
+	c *nwsclient
+}
+
+func (r ntfyWebsocketReceiver) Init(initClient *ntfydistr.Client) {
+	// Start the initialization of the current subscriber
+	r.c.Log.Debug("initing nwsclient subscription for user")
+
+	// Construct necessary primitives
+	var player = battle.Players[r.c.UserID]
+	viewableMapsize := vbge.Location{
+		X: vbge.RenderWidth,
+		Y: vbge.RenderHeight,
+	}
+	playerMapentity, err := vbge.GetViewableMapentity(viewableMapsize.X, viewableMapsize.Y, r.c.UserID, battle, true)
+	if err != nil {
+		r.c.Log.Error("failed getting mapentity", zap.Error(err))
+		return
+	}
+
+	// Send the initial game information
+	r.c.Log.Debug("sending init package to nwsclient")
+	initClient.Push("initial", struct {
+		TotalMapsize    vbge.Location        `json:"totalmapsize"`
+		ViewableMapsize vbge.Location        `json:"viewablemapsize"`
+		MaxHealth       int                  `json:"maxhealth"`
+		PlayerMapentity [][]*vbge.EntityResp `json:"playermapentity"`
+		Startplayer     string               `json:"startplayer"`
+	}{
+		TotalMapsize: vbge.Location{
+			X: vbge.MapWidth,
+			Y: vbge.MapHeight,
+		},
+		ViewableMapsize: viewableMapsize,
+		MaxHealth:       vbge.MaxHealth,
+		Startplayer:     player.GRenderID,
+		PlayerMapentity: playerMapentity.Matrix,
+	}, r.c.Log)
+
+	// Set the client's debug flag
+	r.c.Log.Debug("sending debug flag to nwsclient", zap.Bool("debug", config.Network.WS.Flags.Debug))
+	initClient.Push("flag", struct {
+		Name  string `json:"name"`
+		State bool   `json:"state"`
+	}{
+		"debug",
+		config.Network.WS.Flags.Debug,
+	}, r.c.Log)
+
+	// Send the current state fo the stats
+	if config.Network.WS.Flags.Stats {
+		r.c.Log.Debug("sending stats to nwsclient")
+
+		stats, err := getPlayersStats()
+		if err != nil {
+			r.c.Log.Error("failed getting stats", zap.Error(err))
+			return
+		}
+
+		initClient.Push("stats", struct {
+			Stats playersStats `json:"stats"`
+		}{
+			stats,
+		}, r.c.Log)
+	}
+}
+
+func (r ntfyWebsocketReceiver) Write(notf []byte) (disconnected bool, err error) {
+	// write provided notification to the websocket connection
+	err = r.c.Write(notf)
+	if err == nil {
+		return
+	}
+
+	// check if the remote party disconnected
+	if _, ok := err.(*net.OpError); ok || websocket.IsUnexpectedCloseError(err) {
+		return true, err
+	}
+
+	// unknown error -> just return it
+	return false, err
 }
