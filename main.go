@@ -34,7 +34,7 @@ var (
 	// battle is the game (mapentity with players)
 	battle          *vbge.Battle
 	envDisableCrypt bool
-	dist            ntfydistr.Distributor
+	dist            *ntfydistr.Distributor
 )
 
 func gsInit() {
@@ -208,7 +208,12 @@ func getJoinedPlayers() (joinedPlayers []int) {
 }
 
 func distributorInit(joinedPlayers []int) {
+	joinedStr := make([]string, len(joinedPlayers))
+	for idx, id := range joinedPlayers {
+		joinedStr[idx] = strconv.Itoa(id)
+	}
+
 	// TODO: make global stop chan
 	stop := make(chan struct{})
-	dist = ntfydistr.NewDistributor(joinedPlayers, stop, log.Named("nftydistr.distributor"))
+	dist = ntfydistr.NewDistributor(joinedStr, stop, log.Named("nftydistr.distributor"))
 }
